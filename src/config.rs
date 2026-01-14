@@ -18,11 +18,41 @@ pub struct Config {
     /// Launch at system startup
     pub launch_at_login: bool,
 
+    /// Text cleanup configuration
+    #[serde(default)]
+    pub cleanup: CleanupConfig,
+
     /// Last.fm configuration
     pub lastfm: Option<LastFmConfig>,
 
     /// ListenBrainz configurations (can have multiple instances)
     pub listenbrainz: Vec<ListenBrainzConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CleanupConfig {
+    /// Enable text cleanup
+    pub enabled: bool,
+
+    /// Regex patterns to remove from track/album/artist names
+    /// Applied in order, each pattern is removed from the text
+    pub patterns: Vec<String>,
+}
+
+impl Default for CleanupConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            patterns: vec![
+                r"\s*\[Explicit\]".to_string(),
+                r"\s*\[Clean\]".to_string(),
+                r"\s*\(Explicit\)".to_string(),
+                r"\s*\(Clean\)".to_string(),
+                r"\s*- Explicit".to_string(),
+                r"\s*- Clean".to_string(),
+            ],
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,6 +77,7 @@ impl Default for Config {
             refresh_interval: 5,
             scrobble_threshold: 50,
             launch_at_login: false,
+            cleanup: CleanupConfig::default(),
             lastfm: Some(LastFmConfig {
                 enabled: false,
                 api_key: String::new(),

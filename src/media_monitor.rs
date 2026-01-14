@@ -2,6 +2,7 @@
 // Polls macOS media remote for now playing information
 
 use crate::scrobbler::traits::Track;
+use crate::text_cleanup::TextCleaner;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use media_remote::prelude::*;
@@ -72,23 +73,30 @@ pub struct MediaMonitor {
     refresh_interval: Duration,
     scrobble_threshold: u8,
     current_session: Arc<RwLock<Option<PlaySession>>>,
+    text_cleaner: TextCleaner,
 }
 
 impl MediaMonitor {
-    pub fn new(refresh_interval: Duration, scrobble_threshold: u8) -> Self {
+    pub fn new(refresh_interval: Duration, scrobble_threshold: u8, text_cleaner: TextCleaner) -> Self {
         Self {
             now_playing: NowPlayingJXA::new(Duration::from_secs(30)),
             refresh_interval,
             scrobble_threshold,
             current_session: Arc::new(RwLock::new(None)),
+            text_cleaner,
         }
     }
 
     /// Convert media_remote NowPlayingInfo to our Track structure
-    fn media_info_to_track(info: &NowPlayingInfo) -> Option<Track> {
+    fn media_info_to_track(&self, info: &NowPlayingInfo) -> Option<Track> {
         let title = info.title.clone()?;
         let artist = info.artist.clone()?;
         let album = info.album.clone();
+
+        // Apply text cleanup
+        let title = self.text_cleaner.clean(&title);
+        let artist = self.text_cleaner.clean(&artist);
+        let album = self.text_cleaner.clean_option(album);
 
         Some(Track {
             title,
@@ -118,7 +126,7 @@ impl MediaMonitor {
                 return Ok(events);
             }
 
-            if let Some(track) = Self::media_info_to_track(&info) {
+            if let Some(track) = self.media_info_to_track(&info) {
                 let duration = track.duration.unwrap_or(0);
 
                 let mut session_lock = self.current_session.write().await;

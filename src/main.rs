@@ -1,6 +1,7 @@
 mod config;
 mod media_monitor;
 mod scrobbler;
+mod text_cleanup;
 mod ui;
 
 use anyhow::Result;
@@ -97,10 +98,17 @@ fn main() -> Result<()> {
     let tray = TrayManager::new(config.launch_at_login)?;
     log::info!("System tray initialized");
 
+    // Initialize text cleaner
+    let text_cleaner = text_cleanup::TextCleaner::new(&config.cleanup);
+    if config.cleanup.enabled {
+        log::info!("Text cleanup enabled with {} patterns", config.cleanup.patterns.len());
+    }
+
     // Initialize media monitor
     let monitor = Arc::new(MediaMonitor::new(
         Duration::from_secs(config.refresh_interval),
         config.scrobble_threshold,
+        text_cleaner,
     ));
 
     log::info!("Starting OSX Scrobbler...");

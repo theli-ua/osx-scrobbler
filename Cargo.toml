@@ -37,6 +37,9 @@ chrono = "0.4"
 # For Last.fm API signing
 md5 = "0.7"
 
+# Regex for text cleanup
+regex = "1.10"
+
 # System tray and menu bar
 tray-icon = "0.19"
 winit = "0.30"
