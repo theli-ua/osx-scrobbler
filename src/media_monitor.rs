@@ -143,7 +143,8 @@ impl MediaMonitor {
                         duration
                     );
 
-                    let new_session = PlaySession::new(track.clone(), duration);
+                    let mut new_session = PlaySession::new(track.clone(), duration);
+                    new_session.now_playing_sent = true; // Mark as sent immediately
                     *session_lock = Some(new_session);
 
                     // Send now playing update
