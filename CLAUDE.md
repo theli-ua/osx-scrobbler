@@ -142,14 +142,14 @@ auto-launch = "0.5"  # Launch at login
   - [ ] Support multiple instances
 - [ ] Add scrobble queue with persistence
 
-### Phase 3: Media Monitoring
-- [ ] Implement media_monitor.rs
-- [ ] Poll media state at configurable interval
-- [ ] Track play sessions
-- [ ] Detect track changes
-- [ ] Calculate scrobble eligibility (50% or 4 minutes rule)
-- [ ] Handle edge cases (pause, seek, repeat)
-- [ ] Deduplication logic
+### Phase 3: Media Monitoring ✅
+- [x] Implement media_monitor.rs
+- [x] Poll media state at configurable interval
+- [x] Track play sessions
+- [x] Detect track changes
+- [x] Calculate scrobble eligibility (50% or 4 minutes rule)
+- [x] Handle edge cases (pause, seek, repeat)
+- [x] Deduplication logic
 
 ### Phase 4: Status Bar UI
 - [ ] Create menu bar icon
@@ -182,7 +182,7 @@ auto-launch = "0.5"  # Launch at login
 
 ## Current Status
 
-**Phase**: Phase 3 - Media Monitoring
+**Phase**: Phase 2 - Scrobbling Services Integration
 **Last Updated**: 2026-01-14
 
 ### Completed
@@ -196,15 +196,22 @@ auto-launch = "0.5"  # Launch at login
   - [x] Default config generation
   - [x] Config validation
 - [x] Common Scrobbler trait defined
+- [x] Phase 3: Media Monitoring
+  - [x] Media monitoring with configurable polling
+  - [x] Play session tracking
+  - [x] Track change detection
+  - [x] Scrobble eligibility calculation (Last.fm rules)
+  - [x] Edge case handling (pause, deduplication)
+  - [x] Event system (now playing, scrobble)
 
 ### In Progress
-- [ ] Phase 3: Media Monitoring
+- [ ] Phase 2: Scrobbling Services Integration
 
 ### Next Steps
-1. Implement media monitoring using media_remote
-2. Track play sessions and detect track changes
-3. Calculate scrobble eligibility
-4. Implement scrobbling services (Last.fm and ListenBrainz)
+1. Implement Last.fm API client (authentication, now playing, scrobble)
+2. Implement ListenBrainz API client
+3. Integrate scrobblers with media monitor
+4. Add scrobble queue with persistence
 
 ## Configuration File Example
 
