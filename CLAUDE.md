@@ -42,6 +42,11 @@ A macOS-specific scrobbling application that monitors now playing information us
 - [ ] Error handling for network failures
 - [ ] Logging for debugging
 
+### Development Process
+- [ ] Create git commits for distinct changes to maintain clear history
+- [ ] Each commit should represent a logical, self-contained change
+- [ ] Use descriptive commit messages that explain what and why
+
 ## Technical Architecture
 
 ### Components to Implement
