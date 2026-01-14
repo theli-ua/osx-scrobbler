@@ -10,8 +10,8 @@ use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize logger
-    env_logger::init();
+    // Initialize logger with default level of info if RUST_LOG is not set
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     // Load configuration
     let config = config::Config::load()?;

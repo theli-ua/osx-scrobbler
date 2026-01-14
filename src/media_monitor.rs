@@ -100,8 +100,11 @@ impl MediaMonitor {
 
     /// Check for track changes and return events (now playing, scrobble)
     pub async fn poll(&self) -> Result<MediaEvents> {
-        let guard = self.now_playing.get_info();
-        let media_info = guard.as_ref();
+        // Clone media info before dropping the guard to avoid holding it across await points
+        let media_info = {
+            let guard = self.now_playing.get_info();
+            guard.as_ref().cloned()
+        };
 
         let mut events = MediaEvents::default();
 
@@ -115,7 +118,7 @@ impl MediaMonitor {
                 return Ok(events);
             }
 
-            if let Some(track) = Self::media_info_to_track(info) {
+            if let Some(track) = Self::media_info_to_track(&info) {
                 let duration = track.duration.unwrap_or(0);
 
                 let mut session_lock = self.current_session.write().await;
