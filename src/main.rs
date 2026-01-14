@@ -4,6 +4,7 @@ mod scrobbler;
 mod ui;
 
 use anyhow::Result;
+use clap::Parser;
 use media_monitor::MediaMonitor;
 use scrobbler::{lastfm::LastFmScrobbler, listenbrainz::ListenBrainzScrobbler, traits::Scrobbler};
 use std::sync::Arc;
@@ -18,7 +19,22 @@ enum TrayUpdate {
     Scrobbled(String),
 }
 
+/// OSX Scrobbler - Music scrobbling for macOS
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Authenticate with Last.fm and obtain session key
+    #[arg(long)]
+    auth_lastfm: bool,
+}
+
 fn main() -> Result<()> {
+    let args = Args::parse();
+
+    // Handle Last.fm authentication if requested
+    if args.auth_lastfm {
+        return handle_lastfm_auth();
+    }
     // Initialize logger with default level of info if RUST_LOG is not set
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
@@ -215,6 +231,51 @@ fn main() -> Result<()> {
             elwt.exit();
         }
     })?;
+
+    Ok(())
+}
+
+/// Handle Last.fm authentication flow
+fn handle_lastfm_auth() -> Result<()> {
+    // Load current config
+    let mut config = config::Config::load()?;
+
+    // Check if Last.fm is configured
+    let lastfm_config = config
+        .lastfm
+        .as_ref()
+        .ok_or_else(|| anyhow::anyhow!("Last.fm is not configured in config file"))?;
+
+    if lastfm_config.api_key.is_empty() || lastfm_config.api_secret.is_empty() {
+        anyhow::bail!("Last.fm API key and secret must be set in config file before authenticating");
+    }
+
+    println!("Last.fm Authentication");
+    println!("======================\n");
+    println!("API Key: {}", lastfm_config.api_key);
+    println!("API Secret: {}\n", lastfm_config.api_secret);
+
+    // Run authentication flow using tokio runtime
+    let rt = tokio::runtime::Runtime::new()?;
+    let session_key = rt.block_on(scrobbler::lastfm_auth::authenticate(
+        &lastfm_config.api_key,
+        &lastfm_config.api_secret,
+    ))?;
+
+    println!("Session Key: {}\n", session_key);
+
+    // Update config with session key
+    if let Some(ref mut lastfm) = config.lastfm {
+        lastfm.session_key = session_key;
+        lastfm.enabled = true;
+    }
+
+    // Save config
+    config.save()?;
+
+    println!("Configuration updated successfully!");
+    println!("Last.fm is now enabled and ready to use.");
+    println!("\nYou can now run the scrobbler normally.");
 
     Ok(())
 }
