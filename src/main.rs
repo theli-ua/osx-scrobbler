@@ -8,7 +8,7 @@ use media_monitor::MediaMonitor;
 use scrobbler::{lastfm::LastFmScrobbler, listenbrainz::ListenBrainzScrobbler, traits::Scrobbler};
 use std::sync::Arc;
 use std::time::Duration;
-use ui::tray::TrayManager;
+use ui::tray::{TrayEvent, TrayManager};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
     }
 
     // Initialize system tray
-    let tray = TrayManager::new()?;
+    let tray = TrayManager::new(config.launch_at_login)?;
     log::info!("System tray initialized");
 
     // Initialize media monitor
@@ -72,14 +72,32 @@ async fn main() -> Result<()> {
 
     // Run main loop
     let mut interval = tokio::time::interval(Duration::from_secs(config.refresh_interval));
+    let mut current_config = config.clone();
 
     loop {
         interval.tick().await;
 
         // Check for tray events
-        if tray.handle_events() {
-            log::info!("Quit requested from tray menu");
-            break;
+        if let Some(event) = tray.handle_events() {
+            match event {
+                TrayEvent::Quit => {
+                    log::info!("Quit requested from tray menu");
+                    break;
+                }
+                TrayEvent::ToggleLaunchAtLogin => {
+                    match tray.toggle_launch_at_login() {
+                        Ok(new_state) => {
+                            current_config.launch_at_login = new_state;
+                            if let Err(e) = current_config.save() {
+                                log::error!("Failed to save config: {}", e);
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Failed to toggle launch at login: {}", e);
+                        }
+                    }
+                }
+            }
         }
 
         // Poll media state

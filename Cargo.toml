@@ -36,3 +36,6 @@ md5 = "0.7"
 
 # System tray and menu bar
 tray-icon = "0.19"
+
+# Launch at login
+auto-launch = "0.5"

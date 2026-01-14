@@ -151,14 +151,14 @@ auto-launch = "0.5"  # Launch at login
 - [x] Handle edge cases (pause, seek, repeat)
 - [x] Deduplication logic
 
-### Phase 4: Status Bar UI
-- [ ] Create menu bar icon
-- [ ] Implement system tray menu
-- [ ] Display current now playing
-- [ ] Display last scrobbled track
-- [ ] Add "Start with system" toggle
-- [ ] Add "Quit" option
-- [ ] Handle menu item clicks
+### Phase 4: Status Bar UI ✅
+- [x] Create menu bar icon
+- [x] Implement system tray menu
+- [x] Display current now playing
+- [x] Display last scrobbled track
+- [ ] Add "Start with system" toggle (moving to Phase 5)
+- [x] Add "Quit" option
+- [x] Handle menu item clicks
 
 ### Phase 5: System Integration
 - [ ] Implement launch at login functionality
