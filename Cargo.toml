@@ -1,7 +1,34 @@
 [package]
 name = "osx-scrobbler"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
+# Media monitoring
 media-remote = "0.2.3"
+
+# Configuration and serialization
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+
+# System directories
+dirs = "5.0"
+
+# HTTP client for API calls
+reqwest = { version = "0.12", features = ["json"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# Error handling
+anyhow = "1.0"
+
+# Logging
+log = "0.4"
+env_logger = "0.11"
+
+# Time handling
+chrono = "0.4"
+
+# For Last.fm API signing
+md5 = "0.7"

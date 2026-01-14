@@ -1,23 +1,23 @@
-use std::time::Duration;
+mod config;
+mod media_monitor;
+mod scrobbler;
 
-use media_remote::prelude::*;
+use anyhow::Result;
 
-fn main() {
-    // Create an instance of NowPlaying to interact with the media remote.
-    let now_playing = NowPlayingJXA::new(Duration::from_secs(30));
+fn main() -> Result<()> {
+    // Initialize logger
+    env_logger::init();
 
-    // Use a guard lock to safely access media information within this block.
-    // The guard should be released as soon as possible to avoid blocking.
-    {
-        let guard = now_playing.get_info();
-        let info = guard.as_ref();
+    // Load configuration
+    let config = config::Config::load()?;
+    log::info!("Configuration loaded successfully");
+    log::info!("Refresh interval: {}s", config.refresh_interval);
+    log::info!("Scrobble threshold: {}%", config.scrobble_threshold);
 
-        // If information is available, print the title of the currently playing media.
-        if let Some(info) = info {
-            println!("Currently playing: {:?}", info);
-        }
-    }
+    // TODO: Initialize scrobblers
+    // TODO: Initialize media monitor
+    // TODO: Initialize system tray
+    // TODO: Start main event loop
 
-    // Toggle the play/pause state of the media.
-    // now_playing.toggle();
+    Ok(())
 }
