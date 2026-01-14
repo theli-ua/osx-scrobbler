@@ -128,19 +128,19 @@ auto-launch = "0.5"  # Launch at login
 - [x] Create default config generation
 - [x] Add config validation
 
-### Phase 2: Scrobbling Services Integration
+### Phase 2: Scrobbling Services Integration ✅
 - [x] Define common Scrobbler trait
-- [ ] Implement Last.fm API client
-  - [ ] Authentication flow
-  - [ ] Now playing updates
-  - [ ] Scrobble submission
-  - [ ] API signature generation
-- [ ] Implement ListenBrainz API client
-  - [ ] Token authentication
-  - [ ] Now playing updates
-  - [ ] Scrobble submission
-  - [ ] Support multiple instances
-- [ ] Add scrobble queue with persistence
+- [x] Implement Last.fm API client
+  - [x] Authentication flow (uses existing session_key)
+  - [x] Now playing updates
+  - [x] Scrobble submission
+  - [x] API signature generation
+- [x] Implement ListenBrainz API client
+  - [x] Token authentication
+  - [x] Now playing updates
+  - [x] Scrobble submission
+  - [x] Support multiple instances
+- [ ] Add scrobble queue with persistence (deferred)
 
 ### Phase 3: Media Monitoring ✅
 - [x] Implement media_monitor.rs
@@ -182,7 +182,7 @@ auto-launch = "0.5"  # Launch at login
 
 ## Current Status
 
-**Phase**: Phase 2 - Scrobbling Services Integration
+**Phase**: Core functionality complete - Ready for UI/System Integration
 **Last Updated**: 2026-01-14
 
 ### Completed
@@ -195,7 +195,11 @@ auto-launch = "0.5"  # Launch at login
   - [x] XDG directory support
   - [x] Default config generation
   - [x] Config validation
-- [x] Common Scrobbler trait defined
+- [x] Phase 2: Scrobbling Services Integration
+  - [x] Common Scrobbler trait (object-safe)
+  - [x] Last.fm API client (signature generation, now playing, scrobble)
+  - [x] ListenBrainz API client (multiple instances support)
+  - [x] Integration with media monitor
 - [x] Phase 3: Media Monitoring
   - [x] Media monitoring with configurable polling
   - [x] Play session tracking
@@ -204,14 +208,21 @@ auto-launch = "0.5"  # Launch at login
   - [x] Edge case handling (pause, deduplication)
   - [x] Event system (now playing, scrobble)
 
-### In Progress
-- [ ] Phase 2: Scrobbling Services Integration
+### Core Functionality Status
+The application can now:
+- Monitor macOS media playback using media_remote
+- Detect track changes and play sessions
+- Calculate when to scrobble based on Last.fm rules
+- Submit now playing and scrobbles to Last.fm and/or ListenBrainz
+- Handle multiple ListenBrainz instances simultaneously
+- Continue working if individual scrobblers fail
 
 ### Next Steps
-1. Implement Last.fm API client (authentication, now playing, scrobble)
-2. Implement ListenBrainz API client
-3. Integrate scrobblers with media monitor
-4. Add scrobble queue with persistence
+The core scrobbling functionality is complete. Remaining work:
+1. Phase 4: Status Bar UI (menu bar icon, tray menu)
+2. Phase 5: System Integration (launch at login)
+3. Phase 6: State Management (scrobble queue persistence)
+4. Phase 7: Error Handling & Polish
 
 ## Configuration File Example
 
