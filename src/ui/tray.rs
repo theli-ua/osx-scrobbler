@@ -16,25 +16,26 @@ fn create_icon() -> Result<Icon> {
     let height = 22;
     let mut rgba = vec![0u8; width * height * 4];
 
-    // Draw a musical note (eighth note)
+    // Draw a simple, bold musical note
     for y in 0..height {
         for x in 0..width {
             let idx = (y * width + x) * 4;
 
-            // Note head (filled circle) - bottom left area
-            let note_head_x = 8.0;
-            let note_head_y = 16.0;
-            let note_head_radius = 3.5;
+            // Large note head (filled circle) - bottom area
+            let note_head_x = 9.0;
+            let note_head_y = 15.0;
+            let note_head_radius = 4.0;
             let dx = x as f32 - note_head_x;
             let dy = y as f32 - note_head_y;
             let is_note_head = (dx * dx + dy * dy) <= (note_head_radius * note_head_radius);
 
-            // Stem (vertical line) - from note head to top
-            let is_stem = x >= 14 && x <= 15 && y >= 4 && y <= 16;
+            // Thick stem (vertical line) - from note head up
+            let is_stem = x >= 12 && x <= 14 && y >= 3 && y <= 15;
 
-            // Flag (curved line at top of stem)
-            let is_flag = (x >= 15 && x <= 17 && y >= 4 && y <= 10) ||
-                         (x >= 16 && x <= 18 && y >= 6 && y <= 8);
+            // Simple flag (diagonal line)
+            let is_flag = (x >= 14 && x <= 16 && y >= 3 && y <= 5) ||
+                          (x >= 15 && x <= 17 && y >= 5 && y <= 7) ||
+                          (x >= 16 && x <= 18 && y >= 7 && y <= 9);
 
             if is_note_head || is_stem || is_flag {
                 rgba[idx] = 0;       // R - black for template icons
