@@ -181,6 +181,7 @@ impl MediaMonitor {
     }
 
     /// Start monitoring loop
+    #[allow(dead_code)]
     pub async fn start_monitoring<F>(self: Arc<Self>, mut on_event: F) -> Result<()>
     where
         F: FnMut(MediaEvents) + Send + 'static,
@@ -218,6 +219,7 @@ pub struct MediaEvents {
 }
 
 impl MediaEvents {
+    #[allow(dead_code)]
     fn has_events(&self) -> bool {
         self.now_playing.is_some() || self.scrobble.is_some()
     }

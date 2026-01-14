@@ -1,12 +1,14 @@
 mod config;
 mod media_monitor;
 mod scrobbler;
+mod ui;
 
 use anyhow::Result;
-use media_monitor::{MediaEvents, MediaMonitor};
+use media_monitor::MediaMonitor;
 use scrobbler::{lastfm::LastFmScrobbler, listenbrainz::ListenBrainzScrobbler, traits::Scrobbler};
 use std::sync::Arc;
 use std::time::Duration;
+use ui::tray::TrayManager;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -56,6 +58,10 @@ async fn main() -> Result<()> {
         log::warn!("No scrobblers enabled! The app will monitor media but won't scrobble anywhere.");
     }
 
+    // Initialize system tray
+    let tray = TrayManager::new()?;
+    log::info!("System tray initialized");
+
     // Initialize media monitor
     let monitor = Arc::new(MediaMonitor::new(
         Duration::from_secs(config.refresh_interval),
@@ -64,50 +70,78 @@ async fn main() -> Result<()> {
 
     log::info!("Starting OSX Scrobbler...");
 
-    // TODO: Initialize system tray
+    // Run main loop
+    let mut interval = tokio::time::interval(Duration::from_secs(config.refresh_interval));
 
-    // Start media monitoring
-    monitor
-        .start_monitoring(move |events: MediaEvents| {
-            let scrobblers = scrobblers.clone();
+    loop {
+        interval.tick().await;
 
-            // Spawn async task to handle events
-            tokio::spawn(async move {
-                if let Some(track) = events.now_playing {
+        // Check for tray events
+        if tray.handle_events() {
+            log::info!("Quit requested from tray menu");
+            break;
+        }
+
+        // Poll media state
+        match monitor.poll().await {
+            Ok(events) => {
+                if let Some(ref track) = events.now_playing {
+                    let track_str = format!("{} - {}", track.artist, track.title);
                     log::info!(
-                        "Now playing: {} - {} (album: {})",
-                        track.artist,
-                        track.title,
+                        "Now playing: {} (album: {})",
+                        track_str,
                         track.album.as_deref().unwrap_or("Unknown")
                     );
 
-                    // Send now playing to all enabled scrobblers
-                    for scrobbler in &scrobblers {
-                        if let Err(e) = scrobbler.now_playing(&track).await {
-                            log::error!("Failed to send now playing: {}", e);
-                        }
+                    // Update tray
+                    if let Err(e) = tray.update_now_playing(Some(track_str)) {
+                        log::error!("Failed to update tray now playing: {}", e);
                     }
+
+                    // Send now playing to all enabled scrobblers
+                    let scrobblers_clone = scrobblers.clone();
+                    let track_clone = track.clone();
+                    tokio::spawn(async move {
+                        for scrobbler in &scrobblers_clone {
+                            if let Err(e) = scrobbler.now_playing(&track_clone).await {
+                                log::error!("Failed to send now playing: {}", e);
+                            }
+                        }
+                    });
                 }
 
-                if let Some((track, timestamp)) = events.scrobble {
+                if let Some((ref track, timestamp)) = events.scrobble {
+                    let track_str = format!("{} - {}", track.artist, track.title);
                     log::info!(
-                        "Scrobble: {} - {} at {}",
-                        track.artist,
-                        track.title,
+                        "Scrobble: {} at {}",
+                        track_str,
                         timestamp.format("%Y-%m-%d %H:%M:%S")
                     );
 
-                    // Send scrobble to all enabled scrobblers
-                    let ts = timestamp.timestamp();
-                    for scrobbler in &scrobblers {
-                        if let Err(e) = scrobbler.scrobble(&track, ts).await {
-                            log::error!("Failed to scrobble: {}", e);
-                        }
+                    // Update tray
+                    if let Err(e) = tray.update_last_scrobbled(Some(track_str)) {
+                        log::error!("Failed to update tray last scrobbled: {}", e);
                     }
-                }
-            });
-        })
-        .await?;
 
+                    // Send scrobble to all enabled scrobblers
+                    let scrobblers_clone = scrobblers.clone();
+                    let track_clone = track.clone();
+                    let ts = timestamp.timestamp();
+                    tokio::spawn(async move {
+                        for scrobbler in &scrobblers_clone {
+                            if let Err(e) = scrobbler.scrobble(&track_clone, ts).await {
+                                log::error!("Failed to scrobble: {}", e);
+                            }
+                        }
+                    });
+                }
+            }
+            Err(e) => {
+                log::error!("Error polling media: {}", e);
+            }
+        }
+    }
+
+    log::info!("OSX Scrobbler shutting down");
     Ok(())
 }

@@ -33,3 +33,6 @@ chrono = "0.4"
 
 # For Last.fm API signing
 md5 = "0.7"
+
+# System tray and menu bar
+tray-icon = "0.19"
