@@ -39,3 +39,9 @@ tray-icon = "0.19"
 
 # Launch at login
 auto-launch = "0.5"
+
+# macOS specific
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.5"
+objc2-app-kit = { version = "0.2", features = ["NSApplication"] }
+objc2-foundation = "0.2"

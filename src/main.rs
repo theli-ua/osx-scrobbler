@@ -12,6 +12,18 @@ use ui::tray::{TrayEvent, TrayManager};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Configure app to be menu bar only (no dock icon) on macOS
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
+        use objc2_foundation::MainThreadMarker;
+        unsafe {
+            let mtm = MainThreadMarker::new_unchecked();
+            let app = NSApplication::sharedApplication(mtm);
+            app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
+        }
+    }
+
     // Initialize logger with default level of info if RUST_LOG is not set
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 

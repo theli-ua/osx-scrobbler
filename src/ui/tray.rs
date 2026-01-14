@@ -5,8 +5,39 @@ use auto_launch::AutoLaunch;
 use std::sync::{Arc, RwLock};
 use tray_icon::{
     menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem},
-    TrayIcon, TrayIconBuilder,
+    Icon, TrayIcon, TrayIconBuilder,
 };
+
+/// Create a simple icon for the tray
+fn create_icon() -> Result<Icon> {
+    // Create a simple 16x16 icon with a musical note
+    // This is a basic icon - in production, you'd use a proper PNG/ICO file
+    let width = 16;
+    let height = 16;
+    let mut rgba = vec![0u8; width * height * 4];
+
+    // Draw a simple musical note shape
+    for y in 0..height {
+        for x in 0..width {
+            let idx = (y * width + x) * 4;
+
+            // Create a simple note pattern
+            let is_note = (x >= 6 && x <= 7 && y >= 3 && y <= 14) // stem
+                || (x >= 8 && x <= 10 && y >= 3 && y <= 5) // flag
+                || (x >= 4 && x <= 9 && y >= 12 && y <= 15); // head
+
+            if is_note {
+                rgba[idx] = 255;     // R
+                rgba[idx + 1] = 255; // G
+                rgba[idx + 2] = 255; // B
+                rgba[idx + 3] = 255; // A
+            }
+        }
+    }
+
+    Icon::from_rgba(rgba, width as u32, height as u32)
+        .context("Failed to create icon from RGBA data")
+}
 
 /// Shared state for the tray icon
 #[derive(Debug, Clone, Default)]
@@ -86,9 +117,11 @@ impl TrayManager {
             .context("Failed to add quit item")?;
 
         // Create tray icon
+        let icon = create_icon()?;
         let tray_icon = TrayIconBuilder::new()
             .with_menu(Box::new(menu.clone()))
             .with_tooltip("OSX Scrobbler")
+            .with_icon(icon)
             .build()
             .context("Failed to create tray icon")?;
 
