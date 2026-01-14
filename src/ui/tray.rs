@@ -10,31 +10,32 @@ use tray_icon::{
 
 /// Create a simple icon for the tray
 fn create_icon() -> Result<Icon> {
-    // Create a simple 16x16 icon with a musical note
-    // This is a basic icon - in production, you'd use a proper PNG/ICO file
-    let width = 16;
-    let height = 16;
+    // Create a simple 22x22 template icon (macOS standard size)
+    // Template icons are monochrome and automatically adapt to the menu bar theme
+    let width = 22;
+    let height = 22;
     let mut rgba = vec![0u8; width * height * 4];
 
-    // Draw a simple musical note shape
+    // Fill with a simple pattern - a solid square for visibility
     for y in 0..height {
         for x in 0..width {
             let idx = (y * width + x) * 4;
 
-            // Create a simple note pattern
-            let is_note = (x >= 6 && x <= 7 && y >= 3 && y <= 14) // stem
-                || (x >= 8 && x <= 10 && y >= 3 && y <= 5) // flag
-                || (x >= 4 && x <= 9 && y >= 12 && y <= 15); // head
+            // Create a simple filled square in the middle
+            let is_filled = x >= 4 && x < 18 && y >= 4 && y < 18;
 
-            if is_note {
-                rgba[idx] = 255;     // R
-                rgba[idx + 1] = 255; // G
-                rgba[idx + 2] = 255; // B
-                rgba[idx + 3] = 255; // A
+            if is_filled {
+                rgba[idx] = 0;       // R - black for template icons
+                rgba[idx + 1] = 0;   // G
+                rgba[idx + 2] = 0;   // B
+                rgba[idx + 3] = 255; // A - fully opaque
+            } else {
+                rgba[idx + 3] = 0;   // Transparent background
             }
         }
     }
 
+    log::info!("Creating tray icon with {}x{} pixels", width, height);
     Icon::from_rgba(rgba, width as u32, height as u32)
         .context("Failed to create icon from RGBA data")
 }
@@ -118,12 +119,22 @@ impl TrayManager {
 
         // Create tray icon
         let icon = create_icon()?;
-        let tray_icon = TrayIconBuilder::new()
+        let mut builder = TrayIconBuilder::new()
             .with_menu(Box::new(menu.clone()))
             .with_tooltip("OSX Scrobbler")
-            .with_icon(icon)
+            .with_icon(icon);
+
+        // On macOS, use template icon mode for proper theming
+        #[cfg(target_os = "macos")]
+        {
+            builder = builder.with_icon_as_template(true);
+        }
+
+        let tray_icon = builder
             .build()
             .context("Failed to create tray icon")?;
+
+        log::info!("Tray icon created successfully");
 
         Ok(Self {
             _tray_icon: tray_icon,
