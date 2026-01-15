@@ -87,7 +87,12 @@ pub struct MediaMonitor {
 }
 
 impl MediaMonitor {
-    pub fn new(_refresh_interval: Duration, scrobble_threshold: u8, text_cleaner: TextCleaner, app_filtering: Arc<RwLock<AppFilteringConfig>>) -> Self {
+    pub fn new(
+        _refresh_interval: Duration,
+        scrobble_threshold: u8,
+        text_cleaner: TextCleaner,
+        app_filtering: Arc<RwLock<AppFilteringConfig>>,
+    ) -> Self {
         Self {
             now_playing: NowPlayingJXA::new(Duration::from_secs(30)),
             scrobble_threshold,
@@ -99,7 +104,9 @@ impl MediaMonitor {
 
     /// Check if an app should be scrobbled based on filtering config
     fn should_scrobble_app(&self, bundle_id: &Option<String>) -> AppFilterAction {
-        let filtering = self.app_filtering.read()
+        let filtering = self
+            .app_filtering
+            .read()
             .expect("App filtering lock poisoned - this indicates a bug");
 
         match bundle_id {
@@ -200,7 +207,9 @@ impl MediaMonitor {
                     }
                 }
 
-                let mut session_lock = self.current_session.write()
+                let mut session_lock = self
+                    .current_session
+                    .write()
                     .expect("Session lock poisoned - this indicates a bug in the media monitor");
 
                 // Check if this is a new track or continuation
@@ -224,7 +233,8 @@ impl MediaMonitor {
                         bundle_id
                     );
 
-                    let mut new_session = PlaySession::new(track.clone(), bundle_id.clone(), duration);
+                    let mut new_session =
+                        PlaySession::new(track.clone(), bundle_id.clone(), duration);
                     new_session.now_playing_sent = true; // Mark as sent immediately
                     *session_lock = Some(new_session);
 
@@ -241,18 +251,25 @@ impl MediaMonitor {
                             session.duration
                         );
 
-                        events.scrobble = Some((session.track.clone(), session.started_at, session.bundle_id.clone()));
+                        events.scrobble = Some((
+                            session.track.clone(),
+                            session.started_at,
+                            session.bundle_id.clone(),
+                        ));
                         session.scrobbled = true;
                     } else if session.should_send_now_playing() {
                         // Send now playing update if not sent yet
-                        events.now_playing = Some((session.track.clone(), session.bundle_id.clone()));
+                        events.now_playing =
+                            Some((session.track.clone(), session.bundle_id.clone()));
                         session.now_playing_sent = true;
                     }
                 }
             }
         } else {
             // No media playing, clear session
-            let mut session_lock = self.current_session.write()
+            let mut session_lock = self
+                .current_session
+                .write()
                 .expect("Session lock poisoned - this indicates a bug in the media monitor");
             if session_lock.is_some() {
                 log::info!("Media stopped, clearing session");
@@ -270,11 +287,4 @@ pub struct MediaEvents {
     pub now_playing: Option<(Track, Option<String>)>,
     pub scrobble: Option<(Track, DateTime<Utc>, Option<String>)>,
     pub unknown_app: Option<String>,
-}
-
-impl MediaEvents {
-    #[allow(dead_code)]
-    fn has_events(&self) -> bool {
-        self.now_playing.is_some() || self.scrobble.is_some()
-    }
 }
