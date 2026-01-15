@@ -2,7 +2,8 @@
 
 A lightweight macOS menu bar application that scrobbles your music to Last.fm and ListenBrainz.
 
-![Status](https://img.shields.io/badge/status-stable-green)
+[![Crates.io](https://img.shields.io/crates/v/osx-scrobbler)](https://crates.io/crates/osx-scrobbler)
+[![License](https://img.shields.io/crates/l/osx-scrobbler)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 
 ## Features
@@ -20,9 +21,23 @@ A lightweight macOS menu bar application that scrobbles your music to Last.fm an
 ### Prerequisites
 
 - macOS 10.15 or later
-- Rust toolchain (for building from source)
+- Rust toolchain (install from [rustup.rs](https://rustup.rs))
 
-### Building from Source
+### Install from crates.io (Recommended)
+
+```bash
+cargo install osx-scrobbler
+```
+
+The binary will be installed to `~/.cargo/bin/osx-scrobbler` (ensure `~/.cargo/bin` is in your PATH).
+
+### Running
+
+```bash
+osx-scrobbler
+```
+
+### Building from Source (Alternative)
 
 ```bash
 git clone https://github.com/yourusername/osx-scrobbler.git
@@ -31,14 +46,6 @@ cargo build --release
 ```
 
 The binary will be available at `target/release/osx-scrobbler`.
-
-### Running
-
-```bash
-cargo run
-# or
-./target/release/osx-scrobbler
-```
 
 ## Configuration
 
@@ -124,7 +131,7 @@ session_key = ""  # Leave empty initially
 Run the authentication helper:
 
 ```bash
-cargo run -- --auth-lastfm
+osx-scrobbler --auth-lastfm
 ```
 
 This will:
@@ -177,12 +184,7 @@ api_url = "https://your.instance.com"
 
 Simply run:
 ```bash
-cargo run
-```
-
-Or run the compiled binary:
-```bash
-./target/release/osx-scrobbler
+osx-scrobbler
 ```
 
 The app will:
@@ -202,10 +204,13 @@ Click the menu bar icon to see:
 
 ```bash
 # Show help
-cargo run -- --help
+osx-scrobbler --help
+
+# Show version
+osx-scrobbler --version
 
 # Authenticate with Last.fm
-cargo run -- --auth-lastfm
+osx-scrobbler --auth-lastfm
 ```
 
 ## How Scrobbling Works
@@ -240,9 +245,9 @@ If it shows up in your macOS Control Center or Lock Screen, it will work with OS
 
 1. **Check your config** - Ensure `enabled = true` for at least one service
 2. **Verify credentials**:
-   - Last.fm: Run `cargo run -- --auth-lastfm` to re-authenticate
+   - Last.fm: Run `osx-scrobbler --auth-lastfm` to re-authenticate
    - ListenBrainz: Verify your token at https://listenbrainz.org/profile/
-3. **Check logs** - Run with `RUST_LOG=debug cargo run` for detailed logging
+3. **Check logs** - Run with `RUST_LOG=debug osx-scrobbler` for detailed logging
 4. **Track length** - Tracks under 30 seconds are not scrobbled
 
 ### Tray icon not appearing
@@ -302,10 +307,18 @@ If it shows up in your macOS Control Center or Lock Screen, it will work with OS
 
 ## Development
 
-### Building
+### Building from Source
 
 ```bash
+git clone https://github.com/yourusername/osx-scrobbler.git
+cd osx-scrobbler
 cargo build
+```
+
+### Running in Development
+
+```bash
+cargo run
 ```
 
 ### Running Tests
@@ -318,6 +331,12 @@ cargo test
 
 ```bash
 RUST_LOG=debug cargo run
+```
+
+### Linting
+
+```bash
+cargo clippy
 ```
 
 ## Credits
