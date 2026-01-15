@@ -27,6 +27,10 @@ struct Args {
     /// Authenticate with Last.fm and obtain session key
     #[arg(long)]
     auth_lastfm: bool,
+
+    /// Force console output (show logs in terminal)
+    #[arg(long)]
+    console: bool,
 }
 
 fn main() -> Result<()> {
@@ -36,8 +40,9 @@ fn main() -> Result<()> {
     if args.auth_lastfm {
         return handle_lastfm_auth();
     }
-    // Initialize logger with default level of info if RUST_LOG is not set
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+
+    // Set up logging based on environment
+    setup_logging(args.console)?;
 
     // Configure app to be menu bar only (no dock icon) on macOS
     #[cfg(target_os = "macos")]
@@ -240,6 +245,53 @@ fn main() -> Result<()> {
             elwt.exit();
         }
     })?;
+
+    Ok(())
+}
+
+/// Set up logging based on whether we're running from a terminal
+fn setup_logging(force_console: bool) -> Result<()> {
+    use std::io::Write;
+
+    // Check if stdout is a TTY (terminal)
+    let is_terminal = atty::is(atty::Stream::Stdout);
+    let use_console = force_console || is_terminal;
+
+    if use_console {
+        // Running from terminal - log to console
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    } else {
+        // Not running from terminal (e.g., launched via Spotlight)
+        // Log to file instead
+        let log_dir = dirs::home_dir()
+            .ok_or_else(|| anyhow::anyhow!("Could not find home directory"))?
+            .join("Library")
+            .join("Logs");
+
+        std::fs::create_dir_all(&log_dir)?;
+        let log_file = log_dir.join("osx-scrobbler.log");
+
+        let target = Box::new(std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_file)?);
+
+        env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+            .target(env_logger::Target::Pipe(target))
+            .format(|buf, record| {
+                writeln!(
+                    buf,
+                    "[{}] {} - {}",
+                    chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                    record.level(),
+                    record.args()
+                )
+            })
+            .init();
+
+        // Log where we're logging to (this will go to the file)
+        log::info!("OSX Scrobbler started (logging to {})", log_file.display());
+    }
 
     Ok(())
 }

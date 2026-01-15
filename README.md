@@ -37,6 +37,8 @@ The binary will be installed to `~/.cargo/bin/osx-scrobbler` (ensure `~/.cargo/b
 osx-scrobbler
 ```
 
+**Note:** When launched from Spotlight or Finder, the app runs silently in the background with logs written to `~/Library/Logs/osx-scrobbler.log`. When run from a terminal, logs are displayed in the console.
+
 ### Building from Source (Alternative)
 
 ```bash
@@ -211,6 +213,22 @@ osx-scrobbler --version
 
 # Authenticate with Last.fm
 osx-scrobbler --auth-lastfm
+
+# Force console output (show logs in terminal even when not running from one)
+osx-scrobbler --console
+```
+
+### Logging
+
+The app automatically detects how it's being run:
+
+- **From Terminal**: Logs are shown in the terminal (stdout)
+- **From Spotlight/Finder**: Logs are written to `~/Library/Logs/osx-scrobbler.log`
+- **Force Console Mode**: Use `--console` flag to always show logs in terminal
+
+To view logs when running in background:
+```bash
+tail -f ~/Library/Logs/osx-scrobbler.log
 ```
 
 ## How Scrobbling Works
@@ -247,7 +265,9 @@ If it shows up in your macOS Control Center or Lock Screen, it will work with OS
 2. **Verify credentials**:
    - Last.fm: Run `osx-scrobbler --auth-lastfm` to re-authenticate
    - ListenBrainz: Verify your token at https://listenbrainz.org/profile/
-3. **Check logs** - Run with `RUST_LOG=debug osx-scrobbler` for detailed logging
+3. **Check logs**:
+   - From terminal: `RUST_LOG=debug osx-scrobbler --console`
+   - In background: `tail -f ~/Library/Logs/osx-scrobbler.log`
 4. **Track length** - Tracks under 30 seconds are not scrobbled
 
 ### Tray icon not appearing
