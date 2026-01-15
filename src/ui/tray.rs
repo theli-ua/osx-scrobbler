@@ -1,10 +1,9 @@
 // System tray implementation
 
 use anyhow::{Context, Result};
-use auto_launch::AutoLaunch;
 use std::sync::{Arc, RwLock};
 use tray_icon::{
-    menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem},
+    menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem},
     Icon, TrayIcon, TrayIconBuilder,
 };
 
@@ -64,7 +63,6 @@ pub struct TrayState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrayEvent {
     Quit,
-    ToggleLaunchAtLogin,
 }
 
 /// System tray manager
@@ -75,44 +73,18 @@ pub struct TrayManager {
     menu: Menu,
     now_playing_item: MenuItem,
     last_scrobble_item: MenuItem,
-    launch_at_login_item: CheckMenuItem,
     quit_item: MenuItem,
-    auto_launch: AutoLaunch,
 }
 
 impl TrayManager {
     /// Create a new tray manager
-    pub fn new(launch_at_login: bool) -> Result<Self> {
+    pub fn new() -> Result<Self> {
         let state = Arc::new(RwLock::new(TrayState::default()));
-
-        // Set up auto-launch
-        let auto_launch = AutoLaunch::new(
-            "OSX Scrobbler",
-            &std::env::current_exe()
-                .context("Failed to get current executable path")?
-                .to_string_lossy(),
-            false,
-            &[] as &[&str],
-        );
-
-        // Sync auto-launch state with config
-        let is_enabled = auto_launch.is_enabled().unwrap_or(false);
-        if launch_at_login && !is_enabled {
-            if let Err(e) = auto_launch.enable() {
-                log::warn!("Failed to enable launch at login: {}", e);
-            }
-        } else if !launch_at_login && is_enabled {
-            if let Err(e) = auto_launch.disable() {
-                log::warn!("Failed to disable launch at login: {}", e);
-            }
-        }
 
         // Create menu items
         let now_playing_item = MenuItem::new("Now Playing: None", false, None);
         let last_scrobble_item = MenuItem::new("Last Scrobbled: None", false, None);
-        let separator1 = PredefinedMenuItem::separator();
-        let launch_at_login_item = CheckMenuItem::new("Launch at Login", true, launch_at_login, None);
-        let separator2 = PredefinedMenuItem::separator();
+        let separator = PredefinedMenuItem::separator();
         let quit_item = MenuItem::new("Quit", true, None);
 
         // Build menu
@@ -121,11 +93,7 @@ impl TrayManager {
             .context("Failed to add now playing item")?;
         menu.append(&last_scrobble_item)
             .context("Failed to add last scrobble item")?;
-        menu.append(&separator1)
-            .context("Failed to add separator")?;
-        menu.append(&launch_at_login_item)
-            .context("Failed to add launch at login item")?;
-        menu.append(&separator2)
+        menu.append(&separator)
             .context("Failed to add separator")?;
         menu.append(&quit_item)
             .context("Failed to add quit item")?;
@@ -155,9 +123,7 @@ impl TrayManager {
             menu,
             now_playing_item,
             last_scrobble_item,
-            launch_at_login_item,
             quit_item,
-            auto_launch,
         })
     }
 
@@ -199,37 +165,12 @@ impl TrayManager {
         Ok(())
     }
 
-    /// Toggle launch at login
-    pub fn toggle_launch_at_login(&self) -> Result<bool> {
-        let is_enabled = self.auto_launch.is_enabled().unwrap_or(false);
-        let new_state = !is_enabled;
-
-        if new_state {
-            self.auto_launch
-                .enable()
-                .context("Failed to enable launch at login")?;
-            log::info!("Launch at login enabled");
-        } else {
-            self.auto_launch
-                .disable()
-                .context("Failed to disable launch at login")?;
-            log::info!("Launch at login disabled");
-        }
-
-        self.launch_at_login_item.set_checked(new_state);
-
-        Ok(new_state)
-    }
-
     /// Check for menu events and return the event if any
     pub fn handle_events(&self) -> Option<TrayEvent> {
         if let Ok(event) = MenuEvent::receiver().try_recv() {
             if event.id == self.quit_item.id() {
                 log::info!("Quit menu item clicked");
                 return Some(TrayEvent::Quit);
-            } else if event.id == self.launch_at_login_item.id() {
-                log::info!("Launch at login toggle clicked");
-                return Some(TrayEvent::ToggleLaunchAtLogin);
             }
         }
         None

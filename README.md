@@ -12,7 +12,6 @@ A lightweight macOS menu bar application that scrobbles your music to Last.fm an
 - 🎯 **macOS Native** - Uses macOS Media Remote for universal media player support
 - 🧹 **Text Cleanup** - Configurable regex patterns to clean track/album names (removes `[Explicit]`, `[Clean]`, etc.)
 - 🔄 **Multiple Services** - Support for multiple ListenBrainz instances
-- 🚀 **Launch at Login** - Optionally start when you log in
 - 📊 **Menu Bar Integration** - Lightweight menu bar icon showing current track
 - ⚡ **Efficient** - Low resource usage, runs silently in background
 
@@ -49,28 +48,7 @@ The app will:
 
 **To start at login:** Add "OSX Scrobbler" to System Settings → General → Login Items
 
-### Option 2: Install via Launch Agent
-
-If you prefer using `cargo install` with a launch agent:
-
-```bash
-# Install the binary
-cargo install osx-scrobbler
-
-# Clone repo for install script
-git clone https://github.com/yourusername/osx-scrobbler.git
-cd osx-scrobbler
-
-# Set up launch agent
-./install.sh
-```
-
-To uninstall the launch agent:
-```bash
-./uninstall.sh
-```
-
-### Option 3: Install from crates.io only
+### Option 2: Install from crates.io
 
 ```bash
 cargo install osx-scrobbler
@@ -78,27 +56,7 @@ cargo install osx-scrobbler
 
 The binary will be installed to `~/.cargo/bin/osx-scrobbler` (ensure `~/.cargo/bin` is in your PATH).
 
-**Note:** Running the bare binary will show a dock icon. Use Option 1 or 2 for proper menu bar integration.
-
-### Running Manually (Alternative)
-
-You can also run directly from the terminal:
-
-```bash
-osx-scrobbler
-```
-
-**Note:** When launched via Spotlight or by double-clicking the binary, macOS will open a Terminal window. To avoid this, use the launch agent installation method above.
-
-### Building from Source (Alternative)
-
-```bash
-git clone https://github.com/yourusername/osx-scrobbler.git
-cd osx-scrobbler
-cargo build --release
-```
-
-The binary will be available at `target/release/osx-scrobbler`.
+**Note:** Running the bare binary will show a dock icon. Use Option 1 for proper menu bar integration.
 
 ## Configuration
 
@@ -117,9 +75,6 @@ refresh_interval = 5
 
 # Scrobble after playing this % of the track (or 4 minutes, whichever comes first)
 scrobble_threshold = 50
-
-# Launch automatically when you log in
-launch_at_login = false
 ```
 
 ### Text Cleanup
@@ -250,7 +205,6 @@ The app will:
 Click the menu bar icon to see:
 - **Now Playing** - Currently playing track
 - **Last Scrobbled** - Most recently scrobbled track
-- **Launch at Login** - Toggle auto-start
 - **Quit** - Exit the application
 
 ### Command Line Options
@@ -323,37 +277,15 @@ If it shows up in your macOS Control Center or Lock Screen, it will work with OS
 
 ### Tray icon not appearing
 
-1. **Check if running** - `launchctl list | grep osx-scrobbler` (if using launch agent)
-2. **Restart the service**:
-   ```bash
-   launchctl unload ~/Library/LaunchAgents/com.osx-scrobbler.plist
-   launchctl load ~/Library/LaunchAgents/com.osx-scrobbler.plist
-   ```
-3. **Check permissions** - macOS may require accessibility permissions
-4. **Menu bar space** - Ensure your menu bar isn't too crowded (try hiding other icons)
-
-### Terminal window opens when launched
-
-This is expected behavior when launching a command-line binary from Spotlight/Finder. To avoid this:
-
-1. **Use the launch agent** (recommended):
-   ```bash
-   ./install.sh
-   ```
-
-2. **Or create an alias/script** - Create a wrapper script that backgrounds the process
+1. **Restart the app** - Quit and relaunch the application
+2. **Check permissions** - macOS may require accessibility permissions
+3. **Menu bar space** - Ensure your menu bar isn't too crowded (try hiding other icons)
 
 ### Text cleanup not working
 
 1. **Check config** - Ensure `cleanup.enabled = true`
 2. **Test patterns** - Your regex patterns may have syntax errors (check logs for warnings)
 3. **Pattern order** - Patterns are applied in order; make sure they don't conflict
-
-### Launch at login not working
-
-1. **Toggle the setting** - Turn it off and on again from the menu
-2. **Check System Settings** - Go to System Settings → General → Login Items
-3. **Permissions** - macOS may require permission to add login items
 
 ## Configuration Reference
 
@@ -363,7 +295,6 @@ This is expected behavior when launching a command-line binary from Spotlight/Fi
 |---------|------|---------|-------------|
 | `refresh_interval` | integer | `5` | How often (in seconds) to poll for now playing info |
 | `scrobble_threshold` | integer | `50` | Percentage of track to play before scrobbling (1-100) |
-| `launch_at_login` | boolean | `false` | Start app automatically when you log in |
 
 ### Cleanup Settings
 

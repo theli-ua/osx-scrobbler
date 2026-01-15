@@ -9,7 +9,7 @@ use clap::Parser;
 use media_monitor::MediaMonitor;
 use scrobbler::{lastfm::LastFmScrobbler, listenbrainz::ListenBrainzScrobbler, traits::Scrobbler};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 use ui::tray::{TrayEvent, TrayManager};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -88,7 +88,7 @@ fn main() -> Result<()> {
     }
 
     // Initialize system tray
-    let tray = TrayManager::new(config.launch_at_login)?;
+    let tray = TrayManager::new()?;
     log::info!("System tray initialized");
 
     // Initialize text cleaner
@@ -109,6 +109,9 @@ fn main() -> Result<()> {
     // Create channel for tray updates
     let (tray_tx, mut tray_rx) = mpsc::unbounded_channel::<TrayUpdate>();
 
+    // Create shutdown channel
+    let (shutdown_tx, mut shutdown_rx) = mpsc::unbounded_channel::<()>();
+
     // Create tokio runtime for async tasks
     let rt = tokio::runtime::Runtime::new()?;
 
@@ -121,7 +124,15 @@ fn main() -> Result<()> {
         let mut interval = tokio::time::interval(Duration::from_secs(refresh_interval));
 
         loop {
-            interval.tick().await;
+            tokio::select! {
+                _ = interval.tick() => {
+                    // Continue with normal polling
+                }
+                _ = shutdown_rx.recv() => {
+                    log::info!("Background task shutting down");
+                    break;
+                }
+            }
 
             // Poll media state
             match monitor_bg.poll().await {
@@ -197,12 +208,12 @@ fn main() -> Result<()> {
         log::info!("Set activation policy to Accessory (no dock icon)");
     }
 
-    let mut current_config = config.clone();
-    let mut should_quit = false;
-
     #[allow(deprecated)]
     event_loop.run(move |_event, elwt| {
-        elwt.set_control_flow(ControlFlow::Poll);
+        // Wake up every 100ms to check for tray updates
+        elwt.set_control_flow(ControlFlow::WaitUntil(
+            Instant::now() + Duration::from_millis(100)
+        ));
 
         // Process tray updates from background thread
         while let Ok(update) = tray_rx.try_recv() {
@@ -224,28 +235,12 @@ fn main() -> Result<()> {
         if let Some(event) = tray.handle_events() {
             match event {
                 TrayEvent::Quit => {
-                    log::info!("Quit requested from tray menu");
-                    should_quit = true;
-                }
-                TrayEvent::ToggleLaunchAtLogin => {
-                    match tray.toggle_launch_at_login() {
-                        Ok(new_state) => {
-                            current_config.launch_at_login = new_state;
-                            if let Err(e) = current_config.save() {
-                                log::error!("Failed to save config: {}", e);
-                            }
-                        }
-                        Err(e) => {
-                            log::error!("Failed to toggle launch at login: {}", e);
-                        }
-                    }
+                    log::info!("OSX Scrobbler shutting down");
+                    // Signal background task to shutdown
+                    let _ = shutdown_tx.send(());
+                    elwt.exit();
                 }
             }
-        }
-
-        if should_quit {
-            log::info!("OSX Scrobbler shutting down");
-            elwt.exit();
         }
     })?;
 

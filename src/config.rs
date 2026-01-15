@@ -15,9 +15,6 @@ pub struct Config {
     /// Scrobble after playing this percentage of the track (50% default)
     pub scrobble_threshold: u8,
 
-    /// Launch at system startup
-    pub launch_at_login: bool,
-
     /// Text cleanup configuration
     #[serde(default)]
     pub cleanup: CleanupConfig,
@@ -76,7 +73,6 @@ impl Default for Config {
         Self {
             refresh_interval: 5,
             scrobble_threshold: 50,
-            launch_at_login: false,
             cleanup: CleanupConfig::default(),
             lastfm: Some(LastFmConfig {
                 enabled: false,

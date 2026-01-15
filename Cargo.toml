@@ -52,9 +52,6 @@ regex = "1.10"
 tray-icon = "0.19"
 winit = "0.30"
 
-# Launch at login
-auto-launch = "0.5"
-
 # macOS specific
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.5"
