@@ -9,6 +9,7 @@ use chrono::{DateTime, Utc};
 use media_remote::prelude::*;
 use media_remote::NowPlayingInfo;
 use std::time::Duration;
+use std::time::SystemTime;
 
 const MIN_TRACK_DURATION: u64 = 30; // Minimum track duration in seconds to scrobble
 const SCROBBLE_TIME_THRESHOLD: u64 = 240; // 4 minutes in seconds
@@ -30,10 +31,16 @@ struct PlaySession {
     duration: u64, // Track duration in seconds
     scrobbled: bool,
     now_playing_sent: bool,
+    info_update_time: Option<SystemTime>,
 }
 
 impl PlaySession {
-    fn new(track: Track, bundle_id: Option<String>, duration: u64) -> Self {
+    fn new(
+        track: Track,
+        bundle_id: Option<String>,
+        duration: u64,
+        info_update_time: Option<SystemTime>,
+    ) -> Self {
         Self {
             track,
             bundle_id,
@@ -41,6 +48,7 @@ impl PlaySession {
             duration,
             scrobbled: false,
             now_playing_sent: false,
+            info_update_time,
         }
     }
 
@@ -175,6 +183,7 @@ impl MediaMonitor {
                 // but keep existing session in case playback resumes
                 return Ok(events);
             }
+            log::debug!("now playing info: {:?}", info);
 
             if let Some(track) = self.media_info_to_track(&info) {
                 let duration = track.duration.unwrap_or(0);
@@ -203,9 +212,7 @@ impl MediaMonitor {
                     None => true,
                     Some(session) => {
                         // Check if track changed
-                        session.track.title != track.title
-                            || session.track.artist != track.artist
-                            || session.track.album != track.album
+                        session.track != track || session.info_update_time != info.info_update_time
                     }
                 };
 
@@ -219,8 +226,12 @@ impl MediaMonitor {
                         bundle_id
                     );
 
-                    let mut new_session =
-                        PlaySession::new(track.clone(), bundle_id.clone(), duration);
+                    let mut new_session = PlaySession::new(
+                        track.clone(),
+                        bundle_id.clone(),
+                        duration,
+                        info.info_update_time,
+                    );
                     new_session.now_playing_sent = true; // Mark as sent immediately
                     self.current_session = Some(new_session);
 

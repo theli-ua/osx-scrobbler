@@ -81,7 +81,7 @@ pub mod lastfm_auth {
 }
 
 /// Represents a music track
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Track {
     pub title: String,
     pub artist: String,

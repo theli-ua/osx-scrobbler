@@ -11,6 +11,8 @@
   - Support for `allowed_apps` and `ignored_apps` lists
   - `scrobble_unknown` setting for apps without bundle_id
   - `prompt_for_new_apps` toggle to disable automatic prompts
+### Changed
+  - Fixed scrobbling if the same track is played over and over (now should detect each play separately)
 
 ## [0.3.1] - 2026-01-14
 ### Changed
