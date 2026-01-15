@@ -96,7 +96,9 @@ fn main() -> Result<()> {
     }
 
     if scrobblers.is_empty() {
-        log::warn!("No scrobblers enabled! The app will monitor media but won't scrobble anywhere.");
+        log::warn!(
+            "No scrobblers enabled! The app will monitor media but won't scrobble anywhere."
+        );
     }
 
     // Initialize system tray
@@ -106,14 +108,14 @@ fn main() -> Result<()> {
     // Initialize text cleaner
     let text_cleaner = text_cleanup::TextCleaner::new(&config.cleanup);
     if config.cleanup.enabled {
-        log::info!("Text cleanup enabled with {} patterns", config.cleanup.patterns.len());
+        log::info!(
+            "Text cleanup enabled with {} patterns",
+            config.cleanup.patterns.len()
+        );
     }
 
     // Initialize media monitor
-    let mut media_monitor = MediaMonitor::new(
-        config.scrobble_threshold,
-        text_cleaner,
-    );
+    let mut media_monitor = MediaMonitor::new(config.scrobble_threshold, text_cleaner);
 
     log::info!("Starting OSX Scrobbler...");
 
@@ -294,10 +296,12 @@ fn setup_logging(force_console: bool) -> Result<()> {
         std::fs::create_dir_all(&log_dir)?;
         let log_file = log_dir.join("osx-scrobbler.log");
 
-        let target = Box::new(std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&log_file)?);
+        let target = Box::new(
+            std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&log_file)?,
+        );
 
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
             .target(env_logger::Target::Pipe(target))
@@ -331,7 +335,9 @@ fn handle_lastfm_auth() -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Last.fm is not configured in config file"))?;
 
     if lastfm_config.api_key.is_empty() || lastfm_config.api_secret.is_empty() {
-        anyhow::bail!("Last.fm API key and secret must be set in config file before authenticating");
+        anyhow::bail!(
+            "Last.fm API key and secret must be set in config file before authenticating"
+        );
     }
 
     println!("Last.fm Authentication");
@@ -340,10 +346,8 @@ fn handle_lastfm_auth() -> Result<()> {
     println!("API Secret: {}\n", lastfm_config.api_secret);
 
     // Run authentication flow
-    let session_key = scrobbler::lastfm_auth::authenticate(
-        &lastfm_config.api_key,
-        &lastfm_config.api_secret,
-    )?;
+    let session_key =
+        scrobbler::lastfm_auth::authenticate(&lastfm_config.api_key, &lastfm_config.api_secret)?;
 
     println!("Session Key: {}\n", session_key);
 
@@ -407,7 +411,10 @@ fn handle_install_app() -> Result<()> {
 
     // Check if app already exists
     if app_path.exists() {
-        print!("App bundle already exists at {}. Overwrite? [y/N] ", app_path.display());
+        print!(
+            "App bundle already exists at {}. Overwrite? [y/N] ",
+            app_path.display()
+        );
         std::io::stdout().flush()?;
 
         let mut input = String::new();
@@ -425,7 +432,7 @@ fn handle_install_app() -> Result<()> {
     // Create directory structure
     println!("Creating app bundle structure...");
     match fs::create_dir_all(&macos_dir) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
             eprintln!("\n❌ Permission denied creating app bundle.");
             eprintln!("\nTry running with sudo:");
@@ -501,7 +508,7 @@ fn handle_uninstall_app() -> Result<()> {
     // Remove app bundle
     println!("\nRemoving app bundle...");
     match fs::remove_dir_all(&app_path) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
             eprintln!("\n❌ Permission denied removing app bundle.");
             eprintln!("\nTry running with sudo:");

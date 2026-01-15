@@ -124,8 +124,7 @@ impl Default for Config {
 impl Config {
     /// Get the path to the configuration file
     pub fn config_path() -> Result<PathBuf> {
-        let config_dir = dirs::config_dir()
-            .context("Failed to get config directory")?;
+        let config_dir = dirs::config_dir().context("Failed to get config directory")?;
 
         Ok(config_dir.join("osx_scrobbler.conf"))
     }
@@ -135,17 +134,18 @@ impl Config {
         let config_path = Self::config_path()?;
 
         if !config_path.exists() {
-            log::info!("Config file not found, creating default at {:?}", config_path);
+            log::info!(
+                "Config file not found, creating default at {:?}",
+                config_path
+            );
             let default_config = Self::default();
             default_config.save()?;
             return Ok(default_config);
         }
 
-        let content = fs::read_to_string(&config_path)
-            .context("Failed to read config file")?;
+        let content = fs::read_to_string(&config_path).context("Failed to read config file")?;
 
-        let config: Config = toml::from_str(&content)
-            .context("Failed to parse config file")?;
+        let config: Config = toml::from_str(&content).context("Failed to parse config file")?;
 
         config.validate()?;
 
@@ -158,15 +158,12 @@ impl Config {
 
         // Create parent directory if it doesn't exist
         if let Some(parent) = config_path.parent() {
-            fs::create_dir_all(parent)
-                .context("Failed to create config directory")?;
+            fs::create_dir_all(parent).context("Failed to create config directory")?;
         }
 
-        let content = toml::to_string_pretty(self)
-            .context("Failed to serialize config")?;
+        let content = toml::to_string_pretty(self).context("Failed to serialize config")?;
 
-        fs::write(&config_path, content)
-            .context("Failed to write config file")?;
+        fs::write(&config_path, content).context("Failed to write config file")?;
 
         log::info!("Config saved to {:?}", config_path);
 
@@ -209,7 +206,10 @@ impl Config {
         for lb in &self.listenbrainz {
             if lb.enabled {
                 if lb.token.is_empty() {
-                    anyhow::bail!("ListenBrainz token is required when enabled (instance: {})", lb.name);
+                    anyhow::bail!(
+                        "ListenBrainz token is required when enabled (instance: {})",
+                        lb.name
+                    );
                 }
                 if lb.api_url.is_empty() {
                     anyhow::bail!("ListenBrainz api_url is required (instance: {})", lb.name);

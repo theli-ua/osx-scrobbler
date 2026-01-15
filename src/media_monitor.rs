@@ -85,10 +85,7 @@ pub struct MediaMonitor {
 }
 
 impl MediaMonitor {
-    pub fn new(
-        scrobble_threshold: u8,
-        text_cleaner: TextCleaner,
-    ) -> Self {
+    pub fn new(scrobble_threshold: u8, text_cleaner: TextCleaner) -> Self {
         Self {
             now_playing: NowPlayingJXA::new(Duration::from_secs(30)),
             scrobble_threshold,
@@ -98,7 +95,11 @@ impl MediaMonitor {
     }
 
     /// Check if an app should be scrobbled based on filtering config
-    fn should_scrobble_app(&self, bundle_id: &Option<String>, app_filtering: &AppFilteringConfig) -> AppFilterAction {
+    fn should_scrobble_app(
+        &self,
+        bundle_id: &Option<String>,
+        app_filtering: &AppFilteringConfig,
+    ) -> AppFilterAction {
         match bundle_id {
             None => {
                 // No bundle ID - use scrobble_unknown setting

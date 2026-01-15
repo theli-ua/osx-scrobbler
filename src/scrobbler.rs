@@ -62,9 +62,7 @@ pub mod lastfm_auth {
         println!("  {}\n", auth_url);
         println!("Opening authorization URL in your browser...");
 
-        let _ = std::process::Command::new("open")
-            .arg(&auth_url)
-            .spawn();
+        let _ = std::process::Command::new("open").arg(&auth_url).spawn();
 
         println!("\nAfter authorizing, press Enter to continue...");
 
@@ -94,10 +92,7 @@ pub struct Track {
 /// Scrobbling service
 pub enum Service {
     LastFm(LastFmScrobbler),
-    ListenBrainz {
-        name: String,
-        client: ListenBrainz,
-    },
+    ListenBrainz { name: String, client: ListenBrainz },
 }
 
 impl Service {
@@ -136,7 +131,9 @@ impl Service {
             Self::ListenBrainz { name, client } => {
                 client
                     .playing_now(&track.artist, &track.title, track.album.as_deref())
-                    .with_context(|| format!("Failed to update now playing on ListenBrainz ({})", name))?;
+                    .with_context(|| {
+                        format!("Failed to update now playing on ListenBrainz ({})", name)
+                    })?;
                 log::info!("ListenBrainz ({}): Now playing updated", name);
             }
         }
@@ -147,7 +144,8 @@ impl Service {
     pub fn scrobble(&self, track: &Track, timestamp: DateTime<Utc>) -> Result<()> {
         match self {
             Self::LastFm(scrobbler) => {
-                let mut scrobble = Scrobble::new(&track.artist, &track.title, track.album.as_deref());
+                let mut scrobble =
+                    Scrobble::new(&track.artist, &track.title, track.album.as_deref());
                 scrobble.with_timestamp(timestamp.timestamp() as u64);
                 scrobbler
                     .scrobble(&scrobble)

@@ -16,13 +16,11 @@ impl TextCleaner {
             config
                 .patterns
                 .iter()
-                .filter_map(|pattern| {
-                    match Regex::new(pattern) {
-                        Ok(re) => Some(re),
-                        Err(e) => {
-                            log::warn!("Invalid regex pattern '{}': {}", pattern, e);
-                            None
-                        }
+                .filter_map(|pattern| match Regex::new(pattern) {
+                    Ok(re) => Some(re),
+                    Err(e) => {
+                        log::warn!("Invalid regex pattern '{}': {}", pattern, e);
+                        None
                     }
                 })
                 .collect()
@@ -121,10 +119,7 @@ mod tests {
         };
         let cleaner = TextCleaner::new(&config);
 
-        assert_eq!(
-            cleaner.clean("Song [Explicit] - Remastered 2020"),
-            "Song"
-        );
+        assert_eq!(cleaner.clean("Song [Explicit] - Remastered 2020"), "Song");
     }
 
     #[test]

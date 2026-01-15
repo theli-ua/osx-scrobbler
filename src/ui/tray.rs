@@ -31,22 +31,26 @@ fn create_icon() -> Result<Icon> {
             let is_stem = (12..=14).contains(&x) && (3..=15).contains(&y);
 
             // Simple flag (diagonal line)
-            let is_flag = ((14..=16).contains(&x) && (3..=5).contains(&y)) ||
-                          ((15..=17).contains(&x) && (5..=7).contains(&y)) ||
-                          ((16..=18).contains(&x) && (7..=9).contains(&y));
+            let is_flag = ((14..=16).contains(&x) && (3..=5).contains(&y))
+                || ((15..=17).contains(&x) && (5..=7).contains(&y))
+                || ((16..=18).contains(&x) && (7..=9).contains(&y));
 
             if is_note_head || is_stem || is_flag {
-                rgba[idx] = 0;       // R - black for template icons
-                rgba[idx + 1] = 0;   // G
-                rgba[idx + 2] = 0;   // B
+                rgba[idx] = 0; // R - black for template icons
+                rgba[idx + 1] = 0; // G
+                rgba[idx + 2] = 0; // B
                 rgba[idx + 3] = 255; // A - fully opaque
             } else {
-                rgba[idx + 3] = 0;   // Transparent background
+                rgba[idx + 3] = 0; // Transparent background
             }
         }
     }
 
-    log::info!("Creating tray icon with {}x{} pixels (musical note)", width, height);
+    log::info!(
+        "Creating tray icon with {}x{} pixels (musical note)",
+        width,
+        height
+    );
     Icon::from_rgba(rgba, width as u32, height as u32)
         .context("Failed to create icon from RGBA data")
 }
@@ -86,10 +90,8 @@ impl TrayManager {
             .context("Failed to add now playing item")?;
         menu.append(&last_scrobble_item)
             .context("Failed to add last scrobble item")?;
-        menu.append(&separator)
-            .context("Failed to add separator")?;
-        menu.append(&quit_item)
-            .context("Failed to add quit item")?;
+        menu.append(&separator).context("Failed to add separator")?;
+        menu.append(&quit_item).context("Failed to add quit item")?;
 
         // Create tray icon
         let icon = create_icon()?;
