@@ -2,6 +2,13 @@
 name = "osx-scrobbler"
 version = "0.1.0"
 edition = "2021"
+license = "Apache-2.0"
+authors = ["OSX Scrobbler Contributors"]
+description = "A lightweight macOS menu bar application that scrobbles your music to Last.fm and ListenBrainz"
+repository = "https://github.com/yourusername/osx-scrobbler"
+readme = "README.md"
+keywords = ["scrobbler", "lastfm", "listenbrainz", "macos", "music"]
+categories = ["multimedia", "gui"]
 
 [dependencies]
 # Media monitoring
