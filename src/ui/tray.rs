@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 use tray_icon::{
-    menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem},
+    menu::{Menu, MenuItem, PredefinedMenuItem},
     Icon, TrayIcon, TrayIconBuilder,
 };
 
@@ -58,12 +58,6 @@ pub struct TrayState {
     pub last_scrobbled: Option<String>,
 }
 
-/// Events that can be triggered from the tray menu
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TrayEvent {
-    Quit,
-}
-
 /// System tray manager
 pub struct TrayManager {
     _tray_icon: TrayIcon,
@@ -72,7 +66,7 @@ pub struct TrayManager {
     menu: Menu,
     now_playing_item: MenuItem,
     last_scrobble_item: MenuItem,
-    quit_item: MenuItem,
+    pub quit_item: MenuItem,
 }
 
 impl TrayManager {
@@ -145,16 +139,5 @@ impl TrayManager {
         self.state.last_scrobbled = track;
 
         Ok(())
-    }
-
-    /// Check for menu events and return the event if any
-    pub fn handle_events(&self) -> Option<TrayEvent> {
-        if let Ok(event) = MenuEvent::receiver().try_recv() {
-            if event.id == self.quit_item.id() {
-                log::info!("Quit menu item clicked");
-                return Some(TrayEvent::Quit);
-            }
-        }
-        None
     }
 }

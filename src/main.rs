@@ -9,7 +9,7 @@ use clap::Parser;
 use media_monitor::MediaMonitor;
 use scrobbler::Service;
 use std::time::{Duration, Instant};
-use ui::tray::{TrayEvent, TrayManager};
+use ui::tray::TrayManager;
 use winit::event_loop::{ControlFlow, EventLoop};
 
 /// OSX Scrobbler - Music scrobbling for macOS
@@ -121,8 +121,34 @@ fn main() -> Result<()> {
     let refresh_interval = Duration::from_secs(config.refresh_interval);
     let mut next_poll_time = Instant::now();
 
+    // Define user events for tray menu actions
+    #[derive(Debug, Clone, Copy)]
+    enum UserEvent {
+        TrayQuit,
+    }
+
     // Run event loop on main thread for tray icon
-    let event_loop = EventLoop::new().expect("Failed to create event loop");
+    let event_loop = EventLoop::<UserEvent>::with_user_event()
+        .build()
+        .expect("Failed to create event loop");
+
+    // Get proxy to send events from other threads
+    let event_proxy = event_loop.create_proxy();
+
+    // Spawn minimal thread to forward tray menu events to main event loop
+    // This allows event-based wakeup instead of polling
+    let quit_item_id = tray.quit_item.id().clone();
+    std::thread::spawn(move || {
+        use tray_icon::menu::MenuEvent;
+        loop {
+            if let Ok(event) = MenuEvent::receiver().recv() {
+                if event.id == quit_item_id {
+                    log::info!("Quit menu item clicked");
+                    let _ = event_proxy.send_event(UserEvent::TrayQuit);
+                }
+            }
+        }
+    });
 
     // Configure app to be menu bar only (no dock icon)
     // MUST be set AFTER EventLoop creation as winit creates NSApplication
@@ -136,12 +162,18 @@ fn main() -> Result<()> {
     log::info!("Set activation policy to Accessory (no dock icon)");
 
     #[allow(deprecated)]
-    event_loop.run(move |_event, elwt| {
+    event_loop.run(move |event, elwt| {
+        // Handle user events (tray menu actions)
+        if let winit::event::Event::UserEvent(UserEvent::TrayQuit) = event {
+            log::info!("OSX Scrobbler shutting down");
+            elwt.exit();
+            return;
+        }
+
         let now = Instant::now();
 
-        // Calculate next wake time (earliest of: next poll, or 100ms for tray events)
-        let next_wake = next_poll_time.min(now + Duration::from_millis(100));
-        elwt.set_control_flow(ControlFlow::WaitUntil(next_wake));
+        // Only wake up when we need to poll media
+        elwt.set_control_flow(ControlFlow::WaitUntil(next_poll_time));
 
         // Check if it's time to poll media
         if now >= next_poll_time {
@@ -233,16 +265,6 @@ fn main() -> Result<()> {
 
             // Schedule next poll
             next_poll_time = now + refresh_interval;
-        }
-
-        // Check for tray events
-        if let Some(event) = tray.handle_events() {
-            match event {
-                TrayEvent::Quit => {
-                    log::info!("OSX Scrobbler shutting down");
-                    elwt.exit();
-                }
-            }
         }
     })?;
 
