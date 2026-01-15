@@ -52,8 +52,7 @@ regex = "1.10"
 tray-icon = "0.19"
 winit = "0.30"
 
-# macOS specific
-[target.'cfg(target_os = "macos")'.dependencies]
+# macOS APIs
 objc2 = "0.5"
 objc2-app-kit = { version = "0.2", features = ["NSApplication"] }
 objc2-foundation = "0.2"
