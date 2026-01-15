@@ -23,7 +23,54 @@ A lightweight macOS menu bar application that scrobbles your music to Last.fm an
 - macOS 10.15 or later
 - Rust toolchain (install from [rustup.rs](https://rustup.rs))
 
-### Install from crates.io
+### Option 1: Install as macOS App Bundle (Recommended)
+
+This creates a proper macOS `.app` that runs in the menu bar without a dock icon:
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/osx-scrobbler.git
+cd osx-scrobbler
+
+# Build the app bundle
+./build-app.sh
+
+# Copy to Applications
+cp -r "target/release/OSX Scrobbler.app" /Applications/
+
+# Launch it
+open "/Applications/OSX Scrobbler.app"
+```
+
+The app will:
+- ✅ Show only in menu bar (no dock icon)
+- ✅ Run silently in the background
+- ✅ Log to `~/Library/Logs/osx-scrobbler.log`
+
+**To start at login:** Add "OSX Scrobbler" to System Settings → General → Login Items
+
+### Option 2: Install via Launch Agent
+
+If you prefer using `cargo install` with a launch agent:
+
+```bash
+# Install the binary
+cargo install osx-scrobbler
+
+# Clone repo for install script
+git clone https://github.com/yourusername/osx-scrobbler.git
+cd osx-scrobbler
+
+# Set up launch agent
+./install.sh
+```
+
+To uninstall the launch agent:
+```bash
+./uninstall.sh
+```
+
+### Option 3: Install from crates.io only
 
 ```bash
 cargo install osx-scrobbler
@@ -31,29 +78,7 @@ cargo install osx-scrobbler
 
 The binary will be installed to `~/.cargo/bin/osx-scrobbler` (ensure `~/.cargo/bin` is in your PATH).
 
-### Set Up as Background Service (Recommended)
-
-To run OSX Scrobbler as a proper macOS background service without any terminal windows:
-
-```bash
-# Clone the repo to get the install script
-git clone https://github.com/yourusername/osx-scrobbler.git
-cd osx-scrobbler
-
-# Run the install script
-./install.sh
-```
-
-This will:
-- Create a macOS Launch Agent
-- Start the app automatically at login
-- Run in the background without opening Terminal
-- Log to `~/Library/Logs/osx-scrobbler.log`
-
-To uninstall the launch agent:
-```bash
-./uninstall.sh
-```
+**Note:** Running the bare binary will show a dock icon. Use Option 1 or 2 for proper menu bar integration.
 
 ### Running Manually (Alternative)
 
