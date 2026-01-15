@@ -83,11 +83,11 @@ pub struct MediaMonitor {
     scrobble_threshold: u8,
     current_session: Arc<RwLock<Option<PlaySession>>>,
     text_cleaner: TextCleaner,
-    app_filtering: AppFilteringConfig,
+    app_filtering: Arc<RwLock<AppFilteringConfig>>,
 }
 
 impl MediaMonitor {
-    pub fn new(_refresh_interval: Duration, scrobble_threshold: u8, text_cleaner: TextCleaner, app_filtering: AppFilteringConfig) -> Self {
+    pub fn new(_refresh_interval: Duration, scrobble_threshold: u8, text_cleaner: TextCleaner, app_filtering: Arc<RwLock<AppFilteringConfig>>) -> Self {
         Self {
             now_playing: NowPlayingJXA::new(Duration::from_secs(30)),
             scrobble_threshold,
@@ -99,10 +99,13 @@ impl MediaMonitor {
 
     /// Check if an app should be scrobbled based on filtering config
     fn should_scrobble_app(&self, bundle_id: &Option<String>) -> AppFilterAction {
+        let filtering = self.app_filtering.read()
+            .expect("App filtering lock poisoned - this indicates a bug");
+
         match bundle_id {
             None => {
                 // No bundle ID - use scrobble_unknown setting
-                if self.app_filtering.scrobble_unknown {
+                if filtering.scrobble_unknown {
                     AppFilterAction::Allow
                 } else {
                     AppFilterAction::Ignore
@@ -110,7 +113,7 @@ impl MediaMonitor {
             }
             Some(id) if id.is_empty() => {
                 // Empty bundle ID - treat as None
-                if self.app_filtering.scrobble_unknown {
+                if filtering.scrobble_unknown {
                     AppFilterAction::Allow
                 } else {
                     AppFilterAction::Ignore
@@ -118,15 +121,15 @@ impl MediaMonitor {
             }
             Some(id) => {
                 // Check allowed list first
-                if self.app_filtering.allowed_apps.contains(id) {
+                if filtering.allowed_apps.contains(id) {
                     return AppFilterAction::Allow;
                 }
                 // Check ignored list
-                if self.app_filtering.ignored_apps.contains(id) {
+                if filtering.ignored_apps.contains(id) {
                     return AppFilterAction::Ignore;
                 }
                 // Unknown app - prompt if enabled
-                if self.app_filtering.prompt_for_new_apps {
+                if filtering.prompt_for_new_apps {
                     AppFilterAction::PromptUser
                 } else {
                     // Don't prompt, default to allowing

@@ -110,12 +110,15 @@ fn main() -> Result<()> {
         log::info!("Text cleanup enabled with {} patterns", config.cleanup.patterns.len());
     }
 
+    // Create shared app filtering config (needs to be shared between threads)
+    let app_filtering = Arc::new(std::sync::RwLock::new(config.app_filtering.clone()));
+
     // Initialize media monitor
     let monitor = Arc::new(MediaMonitor::new(
         Duration::from_secs(config.refresh_interval),
         config.scrobble_threshold,
         text_cleaner,
-        config.app_filtering.clone(),
+        app_filtering.clone(),
     ));
 
     log::info!("Starting OSX Scrobbler...");
@@ -226,6 +229,7 @@ fn main() -> Result<()> {
     log::info!("Set activation policy to Accessory (no dock icon)");
 
     let mut should_quit = false;
+    let app_filtering_main = app_filtering.clone(); // Clone Arc for event loop
 
     #[allow(deprecated)]
     event_loop.run(move |_event, elwt| {
@@ -260,6 +264,17 @@ fn main() -> Result<()> {
             match choice {
                 AppChoice::Allow => {
                     log::info!("User allowed app: {}", bundle_id);
+
+                    // Update shared config (for runtime - so background thread sees it)
+                    {
+                        let mut filtering = app_filtering_main.write()
+                            .expect("App filtering lock poisoned - this indicates a bug");
+                        if !filtering.allowed_apps.contains(&bundle_id) {
+                            filtering.allowed_apps.push(bundle_id.clone());
+                        }
+                    }
+
+                    // Update local config and save to disk
                     if !config.app_filtering.allowed_apps.contains(&bundle_id) {
                         config.app_filtering.allowed_apps.push(bundle_id.clone());
                         if let Err(e) = config.save() {
@@ -271,6 +286,17 @@ fn main() -> Result<()> {
                 }
                 AppChoice::Ignore => {
                     log::info!("User ignored app: {}", bundle_id);
+
+                    // Update shared config (for runtime - so background thread sees it)
+                    {
+                        let mut filtering = app_filtering_main.write()
+                            .expect("App filtering lock poisoned - this indicates a bug");
+                        if !filtering.ignored_apps.contains(&bundle_id) {
+                            filtering.ignored_apps.push(bundle_id.clone());
+                        }
+                    }
+
+                    // Update local config and save to disk
                     if !config.app_filtering.ignored_apps.contains(&bundle_id) {
                         config.app_filtering.ignored_apps.push(bundle_id.clone());
                         if let Err(e) = config.save() {
