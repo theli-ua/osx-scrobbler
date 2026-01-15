@@ -7,15 +7,10 @@
 ### Added
 - **App filtering** - Choose which apps to scrobble from
   - Automatic prompts when new apps start playing music
-  - Native macOS dialog for allow/ignore decisions
   - Config automatically updates based on user choices
   - Support for `allowed_apps` and `ignored_apps` lists
   - `scrobble_unknown` setting for apps without bundle_id
   - `prompt_for_new_apps` toggle to disable automatic prompts
-
-### Changed
-- Media events now include bundle_id to identify playing app
-- Improved logging to show which app is playing
 
 ## [0.3.1] - 2026-01-14
 ### Changed
