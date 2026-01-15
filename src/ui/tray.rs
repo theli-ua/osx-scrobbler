@@ -30,12 +30,12 @@ fn create_icon() -> Result<Icon> {
             let is_note_head = (dx * dx + dy * dy) <= (note_head_radius * note_head_radius);
 
             // Thick stem (vertical line) - from note head up
-            let is_stem = x >= 12 && x <= 14 && y >= 3 && y <= 15;
+            let is_stem = (12..=14).contains(&x) && (3..=15).contains(&y);
 
             // Simple flag (diagonal line)
-            let is_flag = (x >= 14 && x <= 16 && y >= 3 && y <= 5) ||
-                          (x >= 15 && x <= 17 && y >= 5 && y <= 7) ||
-                          (x >= 16 && x <= 18 && y >= 7 && y <= 9);
+            let is_flag = ((14..=16).contains(&x) && (3..=5).contains(&y)) ||
+                          ((15..=17).contains(&x) && (5..=7).contains(&y)) ||
+                          ((16..=18).contains(&x) && (7..=9).contains(&y));
 
             if is_note_head || is_stem || is_flag {
                 rgba[idx] = 0;       // R - black for template icons

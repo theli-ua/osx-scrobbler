@@ -192,6 +192,7 @@ fn main() -> Result<()> {
     let mut current_config = config.clone();
     let mut should_quit = false;
 
+    #[allow(deprecated)]
     event_loop.run(move |_event, elwt| {
         elwt.set_control_flow(ControlFlow::Poll);
 
