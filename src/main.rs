@@ -7,18 +7,11 @@ mod ui;
 use anyhow::Result;
 use clap::Parser;
 use media_monitor::MediaMonitor;
-use scrobbler::{lastfm::LastFmScrobbler, listenbrainz::ListenBrainzScrobbler, traits::Scrobbler};
+use scrobbler::Service;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
-use tokio::sync::mpsc;
+use std::time::Duration;
 use ui::tray::{TrayEvent, TrayManager};
 use winit::event_loop::{ControlFlow, EventLoop};
-
-#[derive(Debug, Clone)]
-enum TrayUpdate {
-    NowPlaying(String),
-    Scrobbled(String),
-}
 
 /// OSX Scrobbler - Music scrobbling for macOS
 #[derive(Parser, Debug)]
@@ -51,19 +44,19 @@ fn main() -> Result<()> {
     log::info!("Scrobble threshold: {}%", config.scrobble_threshold);
 
     // Initialize scrobblers
-    let mut scrobblers: Vec<Arc<dyn Scrobbler>> = Vec::new();
+    let mut scrobblers: Vec<Service> = Vec::new();
 
     // Initialize Last.fm if enabled
     if let Some(ref lastfm_config) = config.lastfm {
         if lastfm_config.enabled {
             if !lastfm_config.session_key.is_empty() {
                 log::info!("Last.fm scrobbler enabled");
-                let lastfm = Arc::new(LastFmScrobbler::new(
+                let service = Service::lastfm(
                     lastfm_config.api_key.clone(),
                     lastfm_config.api_secret.clone(),
                     lastfm_config.session_key.clone(),
-                ));
-                scrobblers.push(lastfm);
+                );
+                scrobblers.push(service);
             } else {
                 log::warn!("Last.fm is enabled but session_key is not set. Skipping Last.fm.");
             }
@@ -74,12 +67,14 @@ fn main() -> Result<()> {
     for lb_config in &config.listenbrainz {
         if lb_config.enabled {
             log::info!("ListenBrainz scrobbler enabled: {}", lb_config.name);
-            let listenbrainz = Arc::new(ListenBrainzScrobbler::new(
+            match Service::listenbrainz(
                 lb_config.name.clone(),
                 lb_config.token.clone(),
                 lb_config.api_url.clone(),
-            ));
-            scrobblers.push(listenbrainz);
+            ) {
+                Ok(service) => scrobblers.push(service),
+                Err(e) => log::error!("Failed to initialize ListenBrainz: {}", e),
+            }
         }
     }
 
@@ -107,81 +102,64 @@ fn main() -> Result<()> {
     log::info!("Starting OSX Scrobbler...");
 
     // Create channel for tray updates
-    let (tray_tx, mut tray_rx) = mpsc::unbounded_channel::<TrayUpdate>();
+    #[derive(Debug, Clone)]
+    enum TrayUpdate {
+        NowPlaying(String),
+        Scrobbled(String),
+    }
 
-    // Create shutdown channel
-    let (shutdown_tx, mut shutdown_rx) = mpsc::unbounded_channel::<()>();
+    let (tx, rx) = std::sync::mpsc::channel::<TrayUpdate>();
 
-    // Create tokio runtime for async tasks
-    let rt = tokio::runtime::Runtime::new()?;
-
-    // Spawn background task for media monitoring
-    let scrobblers_bg = scrobblers.clone();
+    // Spawn background thread for media monitoring
+    let scrobblers_bg = Arc::new(scrobblers);
     let monitor_bg = monitor.clone();
     let refresh_interval = config.refresh_interval;
 
-    rt.spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(refresh_interval));
-
+    std::thread::spawn(move || {
         loop {
-            tokio::select! {
-                _ = interval.tick() => {
-                    // Continue with normal polling
-                }
-                _ = shutdown_rx.recv() => {
-                    log::info!("Background task shutting down");
-                    break;
-                }
-            }
+            std::thread::sleep(Duration::from_secs(refresh_interval));
 
             // Poll media state
-            match monitor_bg.poll().await {
+            match monitor_bg.poll() {
                 Ok(events) => {
                     if let Some(ref track) = events.now_playing {
-                        let track_str = format!("{} - {}", track.artist, track.title);
                         log::info!(
-                            "Now playing: {} (album: {})",
-                            track_str,
+                            "Now playing: {} - {} (album: {})",
+                            track.artist,
+                            track.title,
                             track.album.as_deref().unwrap_or("Unknown")
                         );
 
-                        // Send update to main thread
-                        let _ = tray_tx.send(TrayUpdate::NowPlaying(track_str));
-
                         // Send now playing to all enabled scrobblers
-                        let scrobblers_clone = scrobblers_bg.clone();
-                        let track_clone = track.clone();
-                        tokio::spawn(async move {
-                            for scrobbler in &scrobblers_clone {
-                                if let Err(e) = scrobbler.now_playing(&track_clone).await {
-                                    log::error!("Failed to send now playing: {}", e);
-                                }
+                        for scrobbler in scrobblers_bg.iter() {
+                            if let Err(e) = scrobbler.now_playing(track) {
+                                log::error!("Failed to send now playing: {}", e);
                             }
-                        });
+                        }
+
+                        // Update tray
+                        let track_str = format!("{} - {}", track.artist, track.title);
+                        let _ = tx.send(TrayUpdate::NowPlaying(track_str));
                     }
 
                     if let Some((ref track, timestamp)) = events.scrobble {
-                        let track_str = format!("{} - {}", track.artist, track.title);
                         log::info!(
-                            "Scrobble: {} at {}",
-                            track_str,
+                            "Scrobble: {} - {} at {}",
+                            track.artist,
+                            track.title,
                             timestamp.format("%Y-%m-%d %H:%M:%S")
                         );
 
-                        // Send update to main thread
-                        let _ = tray_tx.send(TrayUpdate::Scrobbled(track_str));
-
                         // Send scrobble to all enabled scrobblers
-                        let scrobblers_clone = scrobblers_bg.clone();
-                        let track_clone = track.clone();
-                        let ts = timestamp.timestamp();
-                        tokio::spawn(async move {
-                            for scrobbler in &scrobblers_clone {
-                                if let Err(e) = scrobbler.scrobble(&track_clone, ts).await {
-                                    log::error!("Failed to scrobble: {}", e);
-                                }
+                        for scrobbler in scrobblers_bg.iter() {
+                            if let Err(e) = scrobbler.scrobble(track, timestamp) {
+                                log::error!("Failed to scrobble: {}", e);
                             }
-                        });
+                        }
+
+                        // Update tray
+                        let track_str = format!("{} - {}", track.artist, track.title);
+                        let _ = tx.send(TrayUpdate::Scrobbled(track_str));
                     }
                 }
                 Err(e) => {
@@ -208,15 +186,17 @@ fn main() -> Result<()> {
         log::info!("Set activation policy to Accessory (no dock icon)");
     }
 
+    let mut should_quit = false;
+
     #[allow(deprecated)]
     event_loop.run(move |_event, elwt| {
-        // Wake up every 100ms to check for tray updates
+        // Wake up every 100ms to check for tray events and updates
         elwt.set_control_flow(ControlFlow::WaitUntil(
-            Instant::now() + Duration::from_millis(100)
+            std::time::Instant::now() + Duration::from_millis(100)
         ));
 
         // Process tray updates from background thread
-        while let Ok(update) = tray_rx.try_recv() {
+        while let Ok(update) = rx.try_recv() {
             match update {
                 TrayUpdate::NowPlaying(track) => {
                     if let Err(e) = tray.update_now_playing(Some(track)) {
@@ -236,11 +216,13 @@ fn main() -> Result<()> {
             match event {
                 TrayEvent::Quit => {
                     log::info!("OSX Scrobbler shutting down");
-                    // Signal background task to shutdown
-                    let _ = shutdown_tx.send(());
-                    elwt.exit();
+                    should_quit = true;
                 }
             }
+        }
+
+        if should_quit {
+            elwt.exit();
         }
     })?;
 
@@ -314,12 +296,11 @@ fn handle_lastfm_auth() -> Result<()> {
     println!("API Key: {}", lastfm_config.api_key);
     println!("API Secret: {}\n", lastfm_config.api_secret);
 
-    // Run authentication flow using tokio runtime
-    let rt = tokio::runtime::Runtime::new()?;
-    let session_key = rt.block_on(scrobbler::lastfm_auth::authenticate(
+    // Run authentication flow
+    let session_key = scrobbler::lastfm_auth::authenticate(
         &lastfm_config.api_key,
         &lastfm_config.api_secret,
-    ))?;
+    )?;
 
     println!("Session Key: {}\n", session_key);
 

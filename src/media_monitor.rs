@@ -1,15 +1,14 @@
 // Media monitoring module
 // Polls macOS media remote for now playing information
 
-use crate::scrobbler::traits::Track;
+use crate::scrobbler::Track;
 use crate::text_cleanup::TextCleaner;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use media_remote::prelude::*;
 use media_remote::NowPlayingInfo;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use tokio::sync::RwLock;
 
 const MIN_TRACK_DURATION: u64 = 30; // Minimum track duration in seconds to scrobble
 const SCROBBLE_TIME_THRESHOLD: u64 = 240; // 4 minutes in seconds
@@ -70,17 +69,15 @@ impl PlaySession {
 /// Media monitor that polls macOS media remote
 pub struct MediaMonitor {
     now_playing: NowPlayingJXA,
-    refresh_interval: Duration,
     scrobble_threshold: u8,
     current_session: Arc<RwLock<Option<PlaySession>>>,
     text_cleaner: TextCleaner,
 }
 
 impl MediaMonitor {
-    pub fn new(refresh_interval: Duration, scrobble_threshold: u8, text_cleaner: TextCleaner) -> Self {
+    pub fn new(_refresh_interval: Duration, scrobble_threshold: u8, text_cleaner: TextCleaner) -> Self {
         Self {
             now_playing: NowPlayingJXA::new(Duration::from_secs(30)),
-            refresh_interval,
             scrobble_threshold,
             current_session: Arc::new(RwLock::new(None)),
             text_cleaner,
@@ -107,8 +104,8 @@ impl MediaMonitor {
     }
 
     /// Check for track changes and return events (now playing, scrobble)
-    pub async fn poll(&self) -> Result<MediaEvents> {
-        // Clone media info before dropping the guard to avoid holding it across await points
+    pub fn poll(&self) -> Result<MediaEvents> {
+        // Clone media info to avoid holding the guard
         let media_info = {
             let guard = self.now_playing.get_info();
             guard.as_ref().cloned()
@@ -129,7 +126,7 @@ impl MediaMonitor {
             if let Some(track) = self.media_info_to_track(&info) {
                 let duration = track.duration.unwrap_or(0);
 
-                let mut session_lock = self.current_session.write().await;
+                let mut session_lock = self.current_session.write().unwrap();
 
                 // Check if this is a new track or continuation
                 let is_new_track = match &*session_lock {
@@ -179,7 +176,7 @@ impl MediaMonitor {
             }
         } else {
             // No media playing, clear session
-            let mut session_lock = self.current_session.write().await;
+            let mut session_lock = self.current_session.write().unwrap();
             if session_lock.is_some() {
                 log::info!("Media stopped, clearing session");
                 *session_lock = None;
@@ -187,36 +184,6 @@ impl MediaMonitor {
         }
 
         Ok(events)
-    }
-
-    /// Start monitoring loop
-    #[allow(dead_code)]
-    pub async fn start_monitoring<F>(self: Arc<Self>, mut on_event: F) -> Result<()>
-    where
-        F: FnMut(MediaEvents) + Send + 'static,
-    {
-        log::info!(
-            "Starting media monitoring (interval: {:?}, threshold: {}%)",
-            self.refresh_interval,
-            self.scrobble_threshold
-        );
-
-        let mut interval = tokio::time::interval(self.refresh_interval);
-
-        loop {
-            interval.tick().await;
-
-            match self.poll().await {
-                Ok(events) => {
-                    if events.has_events() {
-                        on_event(events);
-                    }
-                }
-                Err(e) => {
-                    log::error!("Error polling media: {}", e);
-                }
-            }
-        }
     }
 }
 

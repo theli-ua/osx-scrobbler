@@ -14,19 +14,16 @@ categories = ["multimedia", "gui"]
 # Media monitoring
 media-remote = "0.2.3"
 
+# Scrobbling services
+rustfm-scrobble-proxy = "2.0.0"
+listenbrainz = "0.8.1"
+
 # Configuration and serialization
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
 toml = "0.8"
 
 # System directories
 dirs = "5.0"
-
-# HTTP client for API calls
-reqwest = { version = "0.12", features = ["json"] }
-
-# Async runtime
-tokio = { version = "1", features = ["full"] }
 
 # Error handling
 anyhow = "1.0"
@@ -41,9 +38,6 @@ atty = "0.2"
 
 # Time handling
 chrono = "0.4"
-
-# For Last.fm API signing
-md5 = "0.7"
 
 # Regex for text cleanup
 regex = "1.10"
