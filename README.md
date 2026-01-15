@@ -22,41 +22,29 @@ A lightweight macOS menu bar application that scrobbles your music to Last.fm an
 - macOS 10.15 or later
 - Rust toolchain (install from [rustup.rs](https://rustup.rs))
 
-### Option 1: Install as macOS App Bundle (Recommended)
+### Install from crates.io
 
-This creates a proper macOS `.app` that runs in the menu bar without a dock icon:
+The easiest way to install OSX Scrobbler:
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/osx-scrobbler.git
-cd osx-scrobbler
+# Install the binary
+cargo install osx-scrobbler
 
-# Build the app bundle
-./build-app.sh
-
-# Copy to Applications
-cp -r "target/release/OSX Scrobbler.app" /Applications/
-
-# Launch it
-open "/Applications/OSX Scrobbler.app"
+# Create a macOS app bundle in /Applications/
+osx-scrobbler --install-app
 ```
 
-The app will:
+That's it! The app will:
 - ✅ Show only in menu bar (no dock icon)
 - ✅ Run silently in the background
 - ✅ Log to `~/Library/Logs/osx-scrobbler.log`
 
 **To start at login:** Add "OSX Scrobbler" to System Settings → General → Login Items
 
-### Option 2: Install from crates.io
-
+**Note:** If you get a permission error during installation, run with sudo:
 ```bash
-cargo install osx-scrobbler
+sudo osx-scrobbler --install-app
 ```
-
-The binary will be installed to `~/.cargo/bin/osx-scrobbler` (ensure `~/.cargo/bin` is in your PATH).
-
-**Note:** Running the bare binary will show a dock icon. Use Option 1 for proper menu bar integration.
 
 ## Configuration
 
@@ -215,6 +203,12 @@ osx-scrobbler --help
 
 # Show version
 osx-scrobbler --version
+
+# Install as macOS app bundle in /Applications/
+osx-scrobbler --install-app
+
+# Uninstall the app bundle from /Applications/
+osx-scrobbler --uninstall-app
 
 # Authenticate with Last.fm
 osx-scrobbler --auth-lastfm
