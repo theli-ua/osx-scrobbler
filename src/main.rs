@@ -8,8 +8,7 @@ use anyhow::Result;
 use clap::Parser;
 use media_monitor::MediaMonitor;
 use scrobbler::Service;
-use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use ui::tray::{TrayEvent, TrayManager};
 use winit::event_loop::{ControlFlow, EventLoop};
 
@@ -101,7 +100,7 @@ fn main() -> Result<()> {
     }
 
     // Initialize system tray
-    let tray = TrayManager::new()?;
+    let mut tray = TrayManager::new()?;
     log::info!("System tray initialized");
 
     // Initialize text cleaner
@@ -110,109 +109,17 @@ fn main() -> Result<()> {
         log::info!("Text cleanup enabled with {} patterns", config.cleanup.patterns.len());
     }
 
-    // Create shared app filtering config (needs to be shared between threads)
-    let app_filtering = Arc::new(std::sync::RwLock::new(config.app_filtering.clone()));
-
     // Initialize media monitor
-    let monitor = Arc::new(MediaMonitor::new(
-        Duration::from_secs(config.refresh_interval),
+    let mut media_monitor = MediaMonitor::new(
         config.scrobble_threshold,
         text_cleaner,
-        app_filtering.clone(),
-    ));
+    );
 
     log::info!("Starting OSX Scrobbler...");
 
-    // Create channels for tray updates and unknown app events
-    #[derive(Debug, Clone)]
-    enum TrayUpdate {
-        NowPlaying(String),
-        Scrobbled(String),
-    }
-
-    let (tx, rx) = std::sync::mpsc::channel::<TrayUpdate>();
-    let (unknown_app_tx, unknown_app_rx) = std::sync::mpsc::channel::<String>();
-    let (shutdown_tx, shutdown_rx) = std::sync::mpsc::channel::<()>();
-
-    // Spawn background thread for media monitoring
-    let scrobblers_bg = Arc::new(scrobblers);
-    let monitor_bg = monitor.clone();
-    let refresh_interval = config.refresh_interval;
-
-    std::thread::spawn(move || {
-        loop {
-            // Check for shutdown signal with timeout
-            match shutdown_rx.recv_timeout(Duration::from_secs(refresh_interval)) {
-                Ok(_) => {
-                    log::info!("Background thread received shutdown signal");
-                    break;
-                }
-                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                    // Normal timeout, continue polling
-                }
-                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                    log::info!("Shutdown channel disconnected, exiting background thread");
-                    break;
-                }
-            }
-
-            // Poll media state
-            match monitor_bg.poll() {
-                Ok(events) => {
-                    if let Some((ref track, ref bundle_id)) = events.now_playing {
-                        log::info!(
-                            "Now playing: {} - {} (album: {}) from {:?}",
-                            track.artist,
-                            track.title,
-                            track.album.as_deref().unwrap_or("Unknown"),
-                            bundle_id
-                        );
-
-                        // Send now playing to all enabled scrobblers
-                        for scrobbler in scrobblers_bg.iter() {
-                            if let Err(e) = scrobbler.now_playing(track) {
-                                log::error!("Failed to send now playing: {}", e);
-                            }
-                        }
-
-                        // Update tray
-                        let track_str = format!("{} - {}", track.artist, track.title);
-                        let _ = tx.send(TrayUpdate::NowPlaying(track_str));
-                    }
-
-                    if let Some((ref track, timestamp, ref bundle_id)) = events.scrobble {
-                        log::info!(
-                            "Scrobble: {} - {} at {} from {:?}",
-                            track.artist,
-                            track.title,
-                            timestamp.format("%Y-%m-%d %H:%M:%S"),
-                            bundle_id
-                        );
-
-                        // Send scrobble to all enabled scrobblers
-                        for scrobbler in scrobblers_bg.iter() {
-                            if let Err(e) = scrobbler.scrobble(track, timestamp) {
-                                log::error!("Failed to scrobble: {}", e);
-                            }
-                        }
-
-                        // Update tray
-                        let track_str = format!("{} - {}", track.artist, track.title);
-                        let _ = tx.send(TrayUpdate::Scrobbled(track_str));
-                    }
-
-                    // Handle unknown app events
-                    if let Some(ref bundle_id) = events.unknown_app {
-                        log::info!("Unknown app detected: {}", bundle_id);
-                        let _ = unknown_app_tx.send(bundle_id.clone());
-                    }
-                }
-                Err(e) => {
-                    log::error!("Error polling media: {}", e);
-                }
-            }
-        }
-    });
+    // Setup polling state
+    let refresh_interval = Duration::from_secs(config.refresh_interval);
+    let mut next_poll_time = Instant::now();
 
     // Run event loop on main thread for tray icon
     let event_loop = EventLoop::new().expect("Failed to create event loop");
@@ -228,85 +135,104 @@ fn main() -> Result<()> {
     }
     log::info!("Set activation policy to Accessory (no dock icon)");
 
-    let mut should_quit = false;
-    let app_filtering_main = app_filtering.clone(); // Clone Arc for event loop
-
     #[allow(deprecated)]
     event_loop.run(move |_event, elwt| {
-        // Wake up every 100ms to check for tray events and updates
-        elwt.set_control_flow(ControlFlow::WaitUntil(
-            std::time::Instant::now() + Duration::from_millis(100)
-        ));
+        let now = Instant::now();
 
-        // Process tray updates from background thread
-        while let Ok(update) = rx.try_recv() {
-            match update {
-                TrayUpdate::NowPlaying(track) => {
-                    if let Err(e) = tray.update_now_playing(Some(track)) {
-                        log::error!("Failed to update tray now playing: {}", e);
+        // Calculate next wake time (earliest of: next poll, or 100ms for tray events)
+        let next_wake = next_poll_time.min(now + Duration::from_millis(100));
+        elwt.set_control_flow(ControlFlow::WaitUntil(next_wake));
+
+        // Check if it's time to poll media
+        if now >= next_poll_time {
+            match media_monitor.poll(&config.app_filtering) {
+                Ok(events) => {
+                    // Handle now_playing event
+                    if let Some((ref track, ref bundle_id)) = events.now_playing {
+                        log::info!(
+                            "Now playing: {} - {} (album: {}) from {:?}",
+                            track.artist,
+                            track.title,
+                            track.album.as_deref().unwrap_or("Unknown"),
+                            bundle_id
+                        );
+
+                        // Send to scrobblers immediately
+                        for scrobbler in &scrobblers {
+                            if let Err(e) = scrobbler.now_playing(track) {
+                                log::error!("Failed to send now playing: {}", e);
+                            }
+                        }
+
+                        // Update tray immediately
+                        let track_str = format!("{} - {}", track.artist, track.title);
+                        if let Err(e) = tray.update_now_playing(Some(track_str)) {
+                            log::error!("Failed to update tray now playing: {}", e);
+                        }
+                    }
+
+                    // Handle scrobble event
+                    if let Some((ref track, timestamp, ref bundle_id)) = events.scrobble {
+                        log::info!(
+                            "Scrobble: {} - {} at {} from {:?}",
+                            track.artist,
+                            track.title,
+                            timestamp.format("%Y-%m-%d %H:%M:%S"),
+                            bundle_id
+                        );
+
+                        for scrobbler in &scrobblers {
+                            if let Err(e) = scrobbler.scrobble(track, timestamp) {
+                                log::error!("Failed to scrobble: {}", e);
+                            }
+                        }
+
+                        let track_str = format!("{} - {}", track.artist, track.title);
+                        if let Err(e) = tray.update_last_scrobbled(Some(track_str)) {
+                            log::error!("Failed to update tray last scrobbled: {}", e);
+                        }
+                    }
+
+                    // Handle unknown app event (blocking dialog)
+                    if let Some(ref bundle_id) = events.unknown_app {
+                        use ui::app_dialog::{show_app_prompt, AppChoice};
+
+                        log::info!("Prompting user for app: {}", bundle_id);
+                        let choice = show_app_prompt(bundle_id);
+
+                        match choice {
+                            AppChoice::Allow => {
+                                log::info!("User allowed app: {}", bundle_id);
+                                if !config.app_filtering.allowed_apps.contains(bundle_id) {
+                                    config.app_filtering.allowed_apps.push(bundle_id.clone());
+                                    if let Err(e) = config.save() {
+                                        log::error!("Failed to save config: {}", e);
+                                    } else {
+                                        log::info!("Added {} to allowed apps", bundle_id);
+                                    }
+                                }
+                            }
+                            AppChoice::Ignore => {
+                                log::info!("User ignored app: {}", bundle_id);
+                                if !config.app_filtering.ignored_apps.contains(bundle_id) {
+                                    config.app_filtering.ignored_apps.push(bundle_id.clone());
+                                    if let Err(e) = config.save() {
+                                        log::error!("Failed to save config: {}", e);
+                                    } else {
+                                        log::info!("Added {} to ignored apps", bundle_id);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
-                TrayUpdate::Scrobbled(track) => {
-                    if let Err(e) = tray.update_last_scrobbled(Some(track)) {
-                        log::error!("Failed to update tray last scrobbled: {}", e);
-                    }
+                Err(e) => {
+                    log::error!("Error polling media: {}", e);
                 }
             }
-        }
 
-        // Check for unknown app events (show dialog and update config)
-        if let Ok(bundle_id) = unknown_app_rx.try_recv() {
-            use ui::app_dialog::{show_app_prompt, AppChoice};
-
-            log::info!("Prompting user for app: {}", bundle_id);
-            let choice = show_app_prompt(&bundle_id);
-
-            match choice {
-                AppChoice::Allow => {
-                    log::info!("User allowed app: {}", bundle_id);
-
-                    // Update shared config (for runtime - so background thread sees it)
-                    {
-                        let mut filtering = app_filtering_main.write()
-                            .expect("App filtering lock poisoned - this indicates a bug");
-                        if !filtering.allowed_apps.contains(&bundle_id) {
-                            filtering.allowed_apps.push(bundle_id.clone());
-                        }
-                    }
-
-                    // Update local config and save to disk
-                    if !config.app_filtering.allowed_apps.contains(&bundle_id) {
-                        config.app_filtering.allowed_apps.push(bundle_id.clone());
-                        if let Err(e) = config.save() {
-                            log::error!("Failed to save config: {}", e);
-                        } else {
-                            log::info!("Added {} to allowed apps", bundle_id);
-                        }
-                    }
-                }
-                AppChoice::Ignore => {
-                    log::info!("User ignored app: {}", bundle_id);
-
-                    // Update shared config (for runtime - so background thread sees it)
-                    {
-                        let mut filtering = app_filtering_main.write()
-                            .expect("App filtering lock poisoned - this indicates a bug");
-                        if !filtering.ignored_apps.contains(&bundle_id) {
-                            filtering.ignored_apps.push(bundle_id.clone());
-                        }
-                    }
-
-                    // Update local config and save to disk
-                    if !config.app_filtering.ignored_apps.contains(&bundle_id) {
-                        config.app_filtering.ignored_apps.push(bundle_id.clone());
-                        if let Err(e) = config.save() {
-                            log::error!("Failed to save config: {}", e);
-                        } else {
-                            log::info!("Added {} to ignored apps", bundle_id);
-                        }
-                    }
-                }
-            }
+            // Schedule next poll
+            next_poll_time = now + refresh_interval;
         }
 
         // Check for tray events
@@ -314,15 +240,9 @@ fn main() -> Result<()> {
             match event {
                 TrayEvent::Quit => {
                     log::info!("OSX Scrobbler shutting down");
-                    // Signal background thread to shutdown
-                    let _ = shutdown_tx.send(());
-                    should_quit = true;
+                    elwt.exit();
                 }
             }
-        }
-
-        if should_quit {
-            elwt.exit();
         }
     })?;
 

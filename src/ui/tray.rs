@@ -1,7 +1,6 @@
 // System tray implementation
 
 use anyhow::{Context, Result};
-use std::sync::{Arc, RwLock};
 use tray_icon::{
     menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem},
     Icon, TrayIcon, TrayIconBuilder,
@@ -68,7 +67,7 @@ pub enum TrayEvent {
 /// System tray manager
 pub struct TrayManager {
     _tray_icon: TrayIcon,
-    state: Arc<RwLock<TrayState>>,
+    state: TrayState,
     #[allow(dead_code)]
     menu: Menu,
     now_playing_item: MenuItem,
@@ -79,7 +78,7 @@ pub struct TrayManager {
 impl TrayManager {
     /// Create a new tray manager
     pub fn new() -> Result<Self> {
-        let state = Arc::new(RwLock::new(TrayState::default()));
+        let state = TrayState::default();
 
         // Create menu items
         let now_playing_item = MenuItem::new("Now Playing: None", false, None);
@@ -120,14 +119,8 @@ impl TrayManager {
         })
     }
 
-    /// Get a clone of the state for updating
-    #[allow(dead_code)]
-    pub fn state(&self) -> Arc<RwLock<TrayState>> {
-        self.state.clone()
-    }
-
     /// Update the now playing display
-    pub fn update_now_playing(&self, track: Option<String>) -> Result<()> {
+    pub fn update_now_playing(&mut self, track: Option<String>) -> Result<()> {
         let text = if let Some(ref t) = track {
             format!("Now Playing: {}", t)
         } else {
@@ -135,16 +128,13 @@ impl TrayManager {
         };
 
         self.now_playing_item.set_text(text);
-
-        let mut state = self.state.write()
-            .expect("Tray state lock poisoned - this indicates a bug");
-        state.now_playing = track;
+        self.state.now_playing = track;
 
         Ok(())
     }
 
     /// Update the last scrobbled display
-    pub fn update_last_scrobbled(&self, track: Option<String>) -> Result<()> {
+    pub fn update_last_scrobbled(&mut self, track: Option<String>) -> Result<()> {
         let text = if let Some(ref t) = track {
             format!("Last Scrobbled: {}", t)
         } else {
@@ -152,10 +142,7 @@ impl TrayManager {
         };
 
         self.last_scrobble_item.set_text(text);
-
-        let mut state = self.state.write()
-            .expect("Tray state lock poisoned - this indicates a bug");
-        state.last_scrobbled = track;
+        self.state.last_scrobbled = track;
 
         Ok(())
     }

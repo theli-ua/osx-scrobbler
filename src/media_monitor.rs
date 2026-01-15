@@ -8,7 +8,6 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use media_remote::prelude::*;
 use media_remote::NowPlayingInfo;
-use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 const MIN_TRACK_DURATION: u64 = 30; // Minimum track duration in seconds to scrobble
@@ -81,38 +80,29 @@ impl PlaySession {
 pub struct MediaMonitor {
     now_playing: NowPlayingJXA,
     scrobble_threshold: u8,
-    current_session: Arc<RwLock<Option<PlaySession>>>,
+    current_session: Option<PlaySession>,
     text_cleaner: TextCleaner,
-    app_filtering: Arc<RwLock<AppFilteringConfig>>,
 }
 
 impl MediaMonitor {
     pub fn new(
-        _refresh_interval: Duration,
         scrobble_threshold: u8,
         text_cleaner: TextCleaner,
-        app_filtering: Arc<RwLock<AppFilteringConfig>>,
     ) -> Self {
         Self {
             now_playing: NowPlayingJXA::new(Duration::from_secs(30)),
             scrobble_threshold,
-            current_session: Arc::new(RwLock::new(None)),
+            current_session: None,
             text_cleaner,
-            app_filtering,
         }
     }
 
     /// Check if an app should be scrobbled based on filtering config
-    fn should_scrobble_app(&self, bundle_id: &Option<String>) -> AppFilterAction {
-        let filtering = self
-            .app_filtering
-            .read()
-            .expect("App filtering lock poisoned - this indicates a bug");
-
+    fn should_scrobble_app(&self, bundle_id: &Option<String>, app_filtering: &AppFilteringConfig) -> AppFilterAction {
         match bundle_id {
             None => {
                 // No bundle ID - use scrobble_unknown setting
-                if filtering.scrobble_unknown {
+                if app_filtering.scrobble_unknown {
                     AppFilterAction::Allow
                 } else {
                     AppFilterAction::Ignore
@@ -120,7 +110,7 @@ impl MediaMonitor {
             }
             Some(id) if id.is_empty() => {
                 // Empty bundle ID - treat as None
-                if filtering.scrobble_unknown {
+                if app_filtering.scrobble_unknown {
                     AppFilterAction::Allow
                 } else {
                     AppFilterAction::Ignore
@@ -128,15 +118,15 @@ impl MediaMonitor {
             }
             Some(id) => {
                 // Check allowed list first
-                if filtering.allowed_apps.contains(id) {
+                if app_filtering.allowed_apps.contains(id) {
                     return AppFilterAction::Allow;
                 }
                 // Check ignored list
-                if filtering.ignored_apps.contains(id) {
+                if app_filtering.ignored_apps.contains(id) {
                     return AppFilterAction::Ignore;
                 }
                 // Unknown app - prompt if enabled
-                if filtering.prompt_for_new_apps {
+                if app_filtering.prompt_for_new_apps {
                     AppFilterAction::PromptUser
                 } else {
                     // Don't prompt, default to allowing
@@ -166,7 +156,7 @@ impl MediaMonitor {
     }
 
     /// Check for track changes and return events (now playing, scrobble)
-    pub fn poll(&self) -> Result<MediaEvents> {
+    pub fn poll(&mut self, app_filtering: &AppFilteringConfig) -> Result<MediaEvents> {
         // Clone media info to avoid holding the guard
         let media_info = {
             let guard = self.now_playing.get_info();
@@ -190,7 +180,7 @@ impl MediaMonitor {
                 let bundle_id = info.bundle_id.clone();
 
                 // Check if we should scrobble from this app
-                match self.should_scrobble_app(&bundle_id) {
+                match self.should_scrobble_app(&bundle_id, app_filtering) {
                     AppFilterAction::Ignore => {
                         log::debug!("Ignoring playback from {:?}", bundle_id);
                         return Ok(events);
@@ -207,13 +197,8 @@ impl MediaMonitor {
                     }
                 }
 
-                let mut session_lock = self
-                    .current_session
-                    .write()
-                    .expect("Session lock poisoned - this indicates a bug in the media monitor");
-
                 // Check if this is a new track or continuation
-                let is_new_track = match &*session_lock {
+                let is_new_track = match &self.current_session {
                     None => true,
                     Some(session) => {
                         // Check if track changed
@@ -236,11 +221,11 @@ impl MediaMonitor {
                     let mut new_session =
                         PlaySession::new(track.clone(), bundle_id.clone(), duration);
                     new_session.now_playing_sent = true; // Mark as sent immediately
-                    *session_lock = Some(new_session);
+                    self.current_session = Some(new_session);
 
                     // Send now playing update
                     events.now_playing = Some((track, bundle_id));
-                } else if let Some(session) = session_lock.as_mut() {
+                } else if let Some(session) = self.current_session.as_mut() {
                     // Same track, check if we should scrobble
                     if session.should_scrobble(self.scrobble_threshold) {
                         log::info!(
@@ -267,13 +252,9 @@ impl MediaMonitor {
             }
         } else {
             // No media playing, clear session
-            let mut session_lock = self
-                .current_session
-                .write()
-                .expect("Session lock poisoned - this indicates a bug in the media monitor");
-            if session_lock.is_some() {
+            if self.current_session.is_some() {
                 log::info!("Media stopped, clearing session");
-                *session_lock = None;
+                self.current_session = None;
             }
         }
 
