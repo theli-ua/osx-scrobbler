@@ -62,13 +62,9 @@ pub mod lastfm_auth {
         println!("  {}\n", auth_url);
         println!("Opening authorization URL in your browser...");
 
-        // Try to open the URL in the default browser
-        #[cfg(target_os = "macos")]
-        {
-            let _ = std::process::Command::new("open")
-                .arg(&auth_url)
-                .spawn();
-        }
+        let _ = std::process::Command::new("open")
+            .arg(&auth_url)
+            .spawn();
 
         println!("\nAfter authorizing, press Enter to continue...");
 

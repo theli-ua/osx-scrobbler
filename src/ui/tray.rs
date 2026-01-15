@@ -100,18 +100,11 @@ impl TrayManager {
 
         // Create tray icon
         let icon = create_icon()?;
-        let mut builder = TrayIconBuilder::new()
+        let tray_icon = TrayIconBuilder::new()
             .with_menu(Box::new(menu.clone()))
             .with_tooltip("OSX Scrobbler")
-            .with_icon(icon);
-
-        // On macOS, use template icon mode for proper theming
-        #[cfg(target_os = "macos")]
-        {
-            builder = builder.with_icon_as_template(true);
-        }
-
-        let tray_icon = builder
+            .with_icon(icon)
+            .with_icon_as_template(true)
             .build()
             .context("Failed to create tray icon")?;
 

@@ -186,19 +186,16 @@ fn main() -> Result<()> {
     // Run event loop on main thread for tray icon
     let event_loop = EventLoop::new().expect("Failed to create event loop");
 
-    // Configure app to be menu bar only (no dock icon) on macOS
+    // Configure app to be menu bar only (no dock icon)
     // MUST be set AFTER EventLoop creation as winit creates NSApplication
-    #[cfg(target_os = "macos")]
-    {
-        use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
-        use objc2_foundation::MainThreadMarker;
-        unsafe {
-            let mtm = MainThreadMarker::new_unchecked();
-            let app = NSApplication::sharedApplication(mtm);
-            app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
-        }
-        log::info!("Set activation policy to Accessory (no dock icon)");
+    use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
+    use objc2_foundation::MainThreadMarker;
+    unsafe {
+        let mtm = MainThreadMarker::new_unchecked();
+        let app = NSApplication::sharedApplication(mtm);
+        app.setActivationPolicy(NSApplicationActivationPolicy::Accessory);
     }
+    log::info!("Set activation policy to Accessory (no dock icon)");
 
     let mut should_quit = false;
 
