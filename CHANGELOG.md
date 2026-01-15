@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-01-14
+### Changed
+- No app changes, cargo metadata repo url fix
+
 ## [0.3.0] - 2026-01-14
 
 ### Added
