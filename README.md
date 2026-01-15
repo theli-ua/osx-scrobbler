@@ -103,6 +103,44 @@ patterns = [
 
 Patterns are standard regex and are applied in order. Remember to escape special characters with `\\` in TOML.
 
+### App Filtering
+
+Control which apps OSX Scrobbler listens to for scrobbling. When a new app starts playing music, you'll be prompted to allow or ignore it.
+
+```toml
+[app_filtering]
+# Whether to prompt when encountering a new app
+prompt_for_new_apps = true
+
+# Whether to scrobble from apps that don't provide bundle_id
+scrobble_unknown = true
+
+# Apps to scrobble from (bundle IDs)
+allowed_apps = [
+    "com.spotify.client",
+    "com.apple.Music"
+]
+
+# Apps to ignore (bundle IDs)
+ignored_apps = [
+    "com.apple.Safari"  # Don't scrobble YouTube in browser
+]
+```
+
+**How it works:**
+- When music plays from a new app, a dialog will ask whether to allow or ignore scrobbling from that app
+- Your choice is automatically saved to the config file
+- You can manually edit `allowed_apps` and `ignored_apps` lists
+- Apps without a bundle ID (rare) are controlled by the `scrobble_unknown` setting
+- Disable prompts by setting `prompt_for_new_apps = false`
+
+**Common bundle IDs:**
+- Spotify: `com.spotify.client`
+- Apple Music: `com.apple.Music`
+- VLC: `org.videolan.vlc`
+- Safari (for web players): `com.apple.Safari`
+- Google Chrome: `com.google.Chrome`
+
 ## Setting Up Scrobbling Services
 
 ### Last.fm

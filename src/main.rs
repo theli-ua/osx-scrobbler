@@ -55,8 +55,8 @@ fn main() -> Result<()> {
     // Set up logging based on environment
     setup_logging(args.console)?;
 
-    // Load configuration
-    let config = config::Config::load()?;
+    // Load configuration (mutable for app filtering updates)
+    let mut config = config::Config::load()?;
     log::info!("Configuration loaded successfully");
     log::info!("Refresh interval: {}s", config.refresh_interval);
     log::info!("Scrobble threshold: {}%", config.scrobble_threshold);
@@ -115,11 +115,12 @@ fn main() -> Result<()> {
         Duration::from_secs(config.refresh_interval),
         config.scrobble_threshold,
         text_cleaner,
+        config.app_filtering.clone(),
     ));
 
     log::info!("Starting OSX Scrobbler...");
 
-    // Create channel for tray updates
+    // Create channels for tray updates and unknown app events
     #[derive(Debug, Clone)]
     enum TrayUpdate {
         NowPlaying(String),
@@ -127,6 +128,7 @@ fn main() -> Result<()> {
     }
 
     let (tx, rx) = std::sync::mpsc::channel::<TrayUpdate>();
+    let (unknown_app_tx, unknown_app_rx) = std::sync::mpsc::channel::<String>();
     let (shutdown_tx, shutdown_rx) = std::sync::mpsc::channel::<()>();
 
     // Spawn background thread for media monitoring
@@ -154,12 +156,13 @@ fn main() -> Result<()> {
             // Poll media state
             match monitor_bg.poll() {
                 Ok(events) => {
-                    if let Some(ref track) = events.now_playing {
+                    if let Some((ref track, ref bundle_id)) = events.now_playing {
                         log::info!(
-                            "Now playing: {} - {} (album: {})",
+                            "Now playing: {} - {} (album: {}) from {:?}",
                             track.artist,
                             track.title,
-                            track.album.as_deref().unwrap_or("Unknown")
+                            track.album.as_deref().unwrap_or("Unknown"),
+                            bundle_id
                         );
 
                         // Send now playing to all enabled scrobblers
@@ -174,12 +177,13 @@ fn main() -> Result<()> {
                         let _ = tx.send(TrayUpdate::NowPlaying(track_str));
                     }
 
-                    if let Some((ref track, timestamp)) = events.scrobble {
+                    if let Some((ref track, timestamp, ref bundle_id)) = events.scrobble {
                         log::info!(
-                            "Scrobble: {} - {} at {}",
+                            "Scrobble: {} - {} at {} from {:?}",
                             track.artist,
                             track.title,
-                            timestamp.format("%Y-%m-%d %H:%M:%S")
+                            timestamp.format("%Y-%m-%d %H:%M:%S"),
+                            bundle_id
                         );
 
                         // Send scrobble to all enabled scrobblers
@@ -192,6 +196,12 @@ fn main() -> Result<()> {
                         // Update tray
                         let track_str = format!("{} - {}", track.artist, track.title);
                         let _ = tx.send(TrayUpdate::Scrobbled(track_str));
+                    }
+
+                    // Handle unknown app events
+                    if let Some(ref bundle_id) = events.unknown_app {
+                        log::info!("Unknown app detected: {}", bundle_id);
+                        let _ = unknown_app_tx.send(bundle_id.clone());
                     }
                 }
                 Err(e) => {
@@ -235,6 +245,39 @@ fn main() -> Result<()> {
                 TrayUpdate::Scrobbled(track) => {
                     if let Err(e) = tray.update_last_scrobbled(Some(track)) {
                         log::error!("Failed to update tray last scrobbled: {}", e);
+                    }
+                }
+            }
+        }
+
+        // Check for unknown app events (show dialog and update config)
+        if let Ok(bundle_id) = unknown_app_rx.try_recv() {
+            use ui::app_dialog::{show_app_prompt, AppChoice};
+
+            log::info!("Prompting user for app: {}", bundle_id);
+            let choice = show_app_prompt(&bundle_id);
+
+            match choice {
+                AppChoice::Allow => {
+                    log::info!("User allowed app: {}", bundle_id);
+                    if !config.app_filtering.allowed_apps.contains(&bundle_id) {
+                        config.app_filtering.allowed_apps.push(bundle_id.clone());
+                        if let Err(e) = config.save() {
+                            log::error!("Failed to save config: {}", e);
+                        } else {
+                            log::info!("Added {} to allowed apps", bundle_id);
+                        }
+                    }
+                }
+                AppChoice::Ignore => {
+                    log::info!("User ignored app: {}", bundle_id);
+                    if !config.app_filtering.ignored_apps.contains(&bundle_id) {
+                        config.app_filtering.ignored_apps.push(bundle_id.clone());
+                        if let Err(e) = config.save() {
+                            log::error!("Failed to save config: {}", e);
+                        } else {
+                            log::info!("Added {} to ignored apps", bundle_id);
+                        }
                     }
                 }
             }

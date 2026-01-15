@@ -19,6 +19,10 @@ pub struct Config {
     #[serde(default)]
     pub cleanup: CleanupConfig,
 
+    /// App filtering configuration
+    #[serde(default)]
+    pub app_filtering: AppFilteringConfig,
+
     /// Last.fm configuration
     pub lastfm: Option<LastFmConfig>,
 
@@ -68,12 +72,39 @@ pub struct ListenBrainzConfig {
     pub api_url: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppFilteringConfig {
+    /// Whether to prompt when encountering a new app
+    pub prompt_for_new_apps: bool,
+
+    /// Whether to scrobble from apps that don't provide bundle_id
+    pub scrobble_unknown: bool,
+
+    /// Apps to scrobble from (bundle IDs)
+    pub allowed_apps: Vec<String>,
+
+    /// Apps to ignore (bundle IDs)
+    pub ignored_apps: Vec<String>,
+}
+
+impl Default for AppFilteringConfig {
+    fn default() -> Self {
+        Self {
+            prompt_for_new_apps: true,
+            scrobble_unknown: true,
+            allowed_apps: Vec::new(),
+            ignored_apps: Vec::new(),
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
             refresh_interval: 5,
             scrobble_threshold: 50,
             cleanup: CleanupConfig::default(),
+            app_filtering: AppFilteringConfig::default(),
             lastfm: Some(LastFmConfig {
                 enabled: false,
                 api_key: String::new(),
@@ -183,6 +214,16 @@ impl Config {
                 if lb.api_url.is_empty() {
                     anyhow::bail!("ListenBrainz api_url is required (instance: {})", lb.name);
                 }
+            }
+        }
+
+        // Validate app filtering - check for conflicts
+        for bundle_id in &self.app_filtering.allowed_apps {
+            if self.app_filtering.ignored_apps.contains(bundle_id) {
+                anyhow::bail!(
+                    "Bundle ID '{}' appears in both allowed_apps and ignored_apps",
+                    bundle_id
+                );
             }
         }
 

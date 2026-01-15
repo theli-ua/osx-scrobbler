@@ -1,6 +1,6 @@
 [package]
 name = "osx-scrobbler"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["OSX Scrobbler Contributors"]
@@ -53,5 +53,5 @@ winit = "0.30"
 
 # macOS APIs
 objc2 = "0.5"
-objc2-app-kit = { version = "0.2", features = ["NSApplication"] }
+objc2-app-kit = { version = "0.2", features = ["NSApplication", "NSAlert"] }
 objc2-foundation = "0.2"
