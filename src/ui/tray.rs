@@ -143,7 +143,8 @@ impl TrayManager {
 
         self.now_playing_item.set_text(text);
 
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write()
+            .expect("Tray state lock poisoned - this indicates a bug");
         state.now_playing = track;
 
         Ok(())
@@ -159,7 +160,8 @@ impl TrayManager {
 
         self.last_scrobble_item.set_text(text);
 
-        let mut state = self.state.write().unwrap();
+        let mut state = self.state.write()
+            .expect("Tray state lock poisoned - this indicates a bug");
         state.last_scrobbled = track;
 
         Ok(())

@@ -56,3 +56,114 @@ impl TextCleaner {
         text.map(|s| self.clean(&s))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_disabled_cleaner_returns_unchanged() {
+        let config = CleanupConfig {
+            enabled: false,
+            patterns: vec![r"\s*\[Explicit\]".to_string()],
+        };
+        let cleaner = TextCleaner::new(&config);
+
+        assert_eq!(cleaner.clean("Song [Explicit]"), "Song [Explicit]");
+    }
+
+    #[test]
+    fn test_removes_explicit_tags() {
+        let config = CleanupConfig {
+            enabled: true,
+            patterns: vec![
+                r"\s*\[Explicit\]".to_string(),
+                r"\s*\(Explicit\)".to_string(),
+            ],
+        };
+        let cleaner = TextCleaner::new(&config);
+
+        assert_eq!(cleaner.clean("Song [Explicit]"), "Song");
+        assert_eq!(cleaner.clean("Song (Explicit)"), "Song");
+        assert_eq!(cleaner.clean("Song [Explicit] (Explicit)"), "Song");
+    }
+
+    #[test]
+    fn test_removes_clean_tags() {
+        let config = CleanupConfig {
+            enabled: true,
+            patterns: vec![r"\s*\[Clean\]".to_string()],
+        };
+        let cleaner = TextCleaner::new(&config);
+
+        assert_eq!(cleaner.clean("Song [Clean]"), "Song");
+    }
+
+    #[test]
+    fn test_trims_whitespace() {
+        let config = CleanupConfig {
+            enabled: true,
+            patterns: vec![r"\s*\[Explicit\]".to_string()],
+        };
+        let cleaner = TextCleaner::new(&config);
+
+        assert_eq!(cleaner.clean("  Song [Explicit]  "), "Song");
+    }
+
+    #[test]
+    fn test_multiple_patterns() {
+        let config = CleanupConfig {
+            enabled: true,
+            patterns: vec![
+                r"\s*\[Explicit\]".to_string(),
+                r"\s*- Remastered.*".to_string(),
+            ],
+        };
+        let cleaner = TextCleaner::new(&config);
+
+        assert_eq!(
+            cleaner.clean("Song [Explicit] - Remastered 2020"),
+            "Song"
+        );
+    }
+
+    #[test]
+    fn test_clean_option_with_some() {
+        let config = CleanupConfig {
+            enabled: true,
+            patterns: vec![r"\s*\[Explicit\]".to_string()],
+        };
+        let cleaner = TextCleaner::new(&config);
+
+        assert_eq!(
+            cleaner.clean_option(Some("Song [Explicit]".to_string())),
+            Some("Song".to_string())
+        );
+    }
+
+    #[test]
+    fn test_clean_option_with_none() {
+        let config = CleanupConfig {
+            enabled: true,
+            patterns: vec![r"\s*\[Explicit\]".to_string()],
+        };
+        let cleaner = TextCleaner::new(&config);
+
+        assert_eq!(cleaner.clean_option(None), None);
+    }
+
+    #[test]
+    fn test_invalid_pattern_is_skipped() {
+        let config = CleanupConfig {
+            enabled: true,
+            patterns: vec![
+                r"[invalid(".to_string(), // Invalid regex
+                r"\s*\[Explicit\]".to_string(),
+            ],
+        };
+        let cleaner = TextCleaner::new(&config);
+
+        // Should still clean with the valid pattern
+        assert_eq!(cleaner.clean("Song [Explicit]"), "Song");
+    }
+}

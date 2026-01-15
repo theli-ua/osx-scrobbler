@@ -29,9 +29,13 @@ chmod +x "$MACOS_DIR/osx-scrobbler"
 # Copy Info.plist
 cp Info.plist "$CONTENTS_DIR/Info.plist"
 
-# Update version in Info.plist
+# Update version in Info.plist from Cargo.toml
 VERSION=$(grep '^version' Cargo.toml | head -1 | cut -d'"' -f2)
-sed -i '' "s/<string>0.1.0<\/string>/<string>$VERSION<\/string>/" "$CONTENTS_DIR/Info.plist"
+# Replace both CFBundleVersion and CFBundleShortVersionString
+plutil -replace CFBundleVersion -string "$VERSION" "$CONTENTS_DIR/Info.plist" 2>/dev/null || \
+    sed -i '' "s|<key>CFBundleVersion</key>[[:space:]]*<string>[^<]*</string>|<key>CFBundleVersion</key><string>$VERSION</string>|" "$CONTENTS_DIR/Info.plist"
+plutil -replace CFBundleShortVersionString -string "$VERSION" "$CONTENTS_DIR/Info.plist" 2>/dev/null || \
+    sed -i '' "s|<key>CFBundleShortVersionString</key>[[:space:]]*<string>[^<]*</string>|<key>CFBundleShortVersionString</key><string>$VERSION</string>|" "$CONTENTS_DIR/Info.plist"
 
 echo "✓ Created app bundle: $APP_DIR"
 echo ""

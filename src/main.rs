@@ -109,6 +109,7 @@ fn main() -> Result<()> {
     }
 
     let (tx, rx) = std::sync::mpsc::channel::<TrayUpdate>();
+    let (shutdown_tx, shutdown_rx) = std::sync::mpsc::channel::<()>();
 
     // Spawn background thread for media monitoring
     let scrobblers_bg = Arc::new(scrobblers);
@@ -117,7 +118,20 @@ fn main() -> Result<()> {
 
     std::thread::spawn(move || {
         loop {
-            std::thread::sleep(Duration::from_secs(refresh_interval));
+            // Check for shutdown signal with timeout
+            match shutdown_rx.recv_timeout(Duration::from_secs(refresh_interval)) {
+                Ok(_) => {
+                    log::info!("Background thread received shutdown signal");
+                    break;
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                    // Normal timeout, continue polling
+                }
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                    log::info!("Shutdown channel disconnected, exiting background thread");
+                    break;
+                }
+            }
 
             // Poll media state
             match monitor_bg.poll() {
@@ -216,6 +230,8 @@ fn main() -> Result<()> {
             match event {
                 TrayEvent::Quit => {
                     log::info!("OSX Scrobbler shutting down");
+                    // Signal background thread to shutdown
+                    let _ = shutdown_tx.send(());
                     should_quit = true;
                 }
             }
@@ -226,6 +242,7 @@ fn main() -> Result<()> {
         }
     })?;
 
+    log::info!("Application exited cleanly");
     Ok(())
 }
 

@@ -126,7 +126,8 @@ impl MediaMonitor {
             if let Some(track) = self.media_info_to_track(&info) {
                 let duration = track.duration.unwrap_or(0);
 
-                let mut session_lock = self.current_session.write().unwrap();
+                let mut session_lock = self.current_session.write()
+                    .expect("Session lock poisoned - this indicates a bug in the media monitor");
 
                 // Check if this is a new track or continuation
                 let is_new_track = match &*session_lock {
@@ -176,7 +177,8 @@ impl MediaMonitor {
             }
         } else {
             // No media playing, clear session
-            let mut session_lock = self.current_session.write().unwrap();
+            let mut session_lock = self.current_session.write()
+                .expect("Session lock poisoned - this indicates a bug in the media monitor");
             if session_lock.is_some() {
                 log::info!("Media stopped, clearing session");
                 *session_lock = None;
