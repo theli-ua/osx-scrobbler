@@ -23,7 +23,7 @@ A lightweight macOS menu bar application that scrobbles your music to Last.fm an
 - macOS 10.15 or later
 - Rust toolchain (install from [rustup.rs](https://rustup.rs))
 
-### Install from crates.io (Recommended)
+### Install from crates.io
 
 ```bash
 cargo install osx-scrobbler
@@ -31,13 +31,39 @@ cargo install osx-scrobbler
 
 The binary will be installed to `~/.cargo/bin/osx-scrobbler` (ensure `~/.cargo/bin` is in your PATH).
 
-### Running
+### Set Up as Background Service (Recommended)
+
+To run OSX Scrobbler as a proper macOS background service without any terminal windows:
+
+```bash
+# Clone the repo to get the install script
+git clone https://github.com/yourusername/osx-scrobbler.git
+cd osx-scrobbler
+
+# Run the install script
+./install.sh
+```
+
+This will:
+- Create a macOS Launch Agent
+- Start the app automatically at login
+- Run in the background without opening Terminal
+- Log to `~/Library/Logs/osx-scrobbler.log`
+
+To uninstall the launch agent:
+```bash
+./uninstall.sh
+```
+
+### Running Manually (Alternative)
+
+You can also run directly from the terminal:
 
 ```bash
 osx-scrobbler
 ```
 
-**Note:** When launched from Spotlight or Finder, the app runs silently in the background with logs written to `~/Library/Logs/osx-scrobbler.log`. When run from a terminal, logs are displayed in the console.
+**Note:** When launched via Spotlight or by double-clicking the binary, macOS will open a Terminal window. To avoid this, use the launch agent installation method above.
 
 ### Building from Source (Alternative)
 
@@ -272,9 +298,25 @@ If it shows up in your macOS Control Center or Lock Screen, it will work with OS
 
 ### Tray icon not appearing
 
-1. **Restart the app** - Kill any existing instances and run again
-2. **Check permissions** - macOS may require accessibility permissions
-3. **Menu bar space** - Ensure your menu bar isn't too crowded (try hiding other icons)
+1. **Check if running** - `launchctl list | grep osx-scrobbler` (if using launch agent)
+2. **Restart the service**:
+   ```bash
+   launchctl unload ~/Library/LaunchAgents/com.osx-scrobbler.plist
+   launchctl load ~/Library/LaunchAgents/com.osx-scrobbler.plist
+   ```
+3. **Check permissions** - macOS may require accessibility permissions
+4. **Menu bar space** - Ensure your menu bar isn't too crowded (try hiding other icons)
+
+### Terminal window opens when launched
+
+This is expected behavior when launching a command-line binary from Spotlight/Finder. To avoid this:
+
+1. **Use the launch agent** (recommended):
+   ```bash
+   ./install.sh
+   ```
+
+2. **Or create an alias/script** - Create a wrapper script that backgrounds the process
 
 ### Text cleanup not working
 
