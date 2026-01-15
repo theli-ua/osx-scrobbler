@@ -5,6 +5,7 @@ mod text_cleanup;
 mod ui;
 
 use anyhow::Result;
+use backoff::{retry, ExponentialBackoff};
 use clap::Parser;
 use media_monitor::MediaMonitor;
 use scrobbler::Service;
@@ -84,13 +85,23 @@ fn main() -> Result<()> {
     for lb_config in &config.listenbrainz {
         if lb_config.enabled {
             log::info!("ListenBrainz scrobbler enabled: {}", lb_config.name);
-            match Service::listenbrainz(
-                lb_config.name.clone(),
-                lb_config.token.clone(),
-                lb_config.api_url.clone(),
-            ) {
+            let name = lb_config.name.clone();
+            let token = lb_config.token.clone();
+            let api_url = lb_config.api_url.clone();
+
+            let backoff = ExponentialBackoff {
+                max_elapsed_time: Some(Duration::from_secs(30)),
+                ..Default::default()
+            };
+
+            let result = retry(backoff, || {
+                Service::listenbrainz(name.clone(), token.clone(), api_url.clone())
+                    .map_err(backoff::Error::transient)
+            });
+
+            match result {
                 Ok(service) => scrobblers.push(service),
-                Err(e) => log::error!("Failed to initialize ListenBrainz: {}", e),
+                Err(e) => log::error!("Failed to initialize ListenBrainz after retries: {}", e),
             }
         }
     }
@@ -191,10 +202,21 @@ fn main() -> Result<()> {
                             bundle_id
                         );
 
-                        // Send to scrobblers immediately
+                        // Send to scrobblers immediately with retries
                         for scrobbler in &scrobblers {
-                            if let Err(e) = scrobbler.now_playing(track) {
-                                log::error!("Failed to send now playing: {}", e);
+                            let backoff = ExponentialBackoff {
+                                max_elapsed_time: Some(Duration::from_secs(10)),
+                                ..Default::default()
+                            };
+
+                            let result = retry(backoff, || {
+                                scrobbler
+                                    .now_playing(track)
+                                    .map_err(backoff::Error::transient)
+                            });
+
+                            if let Err(e) = result {
+                                log::error!("Failed to send now playing after retries: {}", e);
                             }
                         }
 
@@ -216,8 +238,19 @@ fn main() -> Result<()> {
                         );
 
                         for scrobbler in &scrobblers {
-                            if let Err(e) = scrobbler.scrobble(track, timestamp) {
-                                log::error!("Failed to scrobble: {}", e);
+                            let backoff = ExponentialBackoff {
+                                max_elapsed_time: Some(Duration::from_secs(30)),
+                                ..Default::default()
+                            };
+
+                            let result = retry(backoff, || {
+                                scrobbler
+                                    .scrobble(track, timestamp)
+                                    .map_err(backoff::Error::transient)
+                            });
+
+                            if let Err(e) = result {
+                                log::error!("Failed to scrobble after retries: {}", e);
                             }
                         }
 
