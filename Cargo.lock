@@ -2437,6 +2437,7 @@ name = "osx-scrobbler"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "attohttpc 0.28.5",
  "atty",
  "chrono",
  "clap",
@@ -2444,6 +2445,7 @@ dependencies = [
  "env_logger",
  "listenbrainz",
  "log",
+ "md5",
  "media-remote",
  "objc2 0.5.2",
  "objc2-app-kit 0.2.2",
@@ -2451,6 +2453,7 @@ dependencies = [
  "regex",
  "rustfm-scrobble-proxy",
  "serde",
+ "serde_json",
  "toml",
  "tray-icon",
  "winit",

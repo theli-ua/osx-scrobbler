@@ -18,8 +18,13 @@ media-remote = "0.2.3"
 rustfm-scrobble-proxy = "2.0.0"
 listenbrainz = "0.8.1"
 
+# HTTP client and utilities for Last.fm token auth
+attohttpc = "0.28"
+md5 = "0.7"
+
 # Configuration and serialization
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 toml = "0.8"
 
 # System directories
