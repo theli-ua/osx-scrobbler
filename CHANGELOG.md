@@ -5,6 +5,7 @@
 ## [0.3.2] - 2026-01-15
 
 ### Added
+- scrobble retries
 - **App filtering** - Choose which apps to scrobble from
   - Automatic prompts when new apps start playing music
   - Config automatically updates based on user choices
