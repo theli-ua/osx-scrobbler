@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+## [0.3.3]
+- Fix mem leak
 
 ## [0.3.2] - 2026-01-15
 
