@@ -1,3 +1,6 @@
+#[global_allocator]
+static GLOBAL: std::alloc::System = std::alloc::System;
+
 mod config;
 mod media_monitor;
 mod scrobbler;

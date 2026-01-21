@@ -1812,8 +1812,7 @@ checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
 [[package]]
 name = "media-remote"
 version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "576e446b8ad8941b5d9727c0673fe06a960a01a83ca8a5aefaba03563f3155a1"
+source = "git+https://github.com/theli-ua/media-remote.git#3b964db32aff42e356b4422327e2a35ee8c6e500"
 dependencies = [
  "block2 0.6.2",
  "dispatch2 0.2.0",
