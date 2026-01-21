@@ -8,7 +8,6 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use media_remote::prelude::*;
 use media_remote::NowPlayingInfo;
-use objc2::rc::autoreleasepool;
 use std::time::Duration;
 use std::time::SystemTime;
 
@@ -168,10 +167,10 @@ impl MediaMonitor {
     /// Check for track changes and return events (now playing, scrobble)
     pub fn poll(&mut self, app_filtering: &AppFilteringConfig) -> Result<MediaEvents> {
         // Clone media info to avoid holding the guard
-        let media_info = autoreleasepool(|_| {
+        let media_info = {
             let guard = self.now_playing.get_info();
             guard.as_ref().cloned()
-        });
+        };
 
         let mut events = MediaEvents::default();
 

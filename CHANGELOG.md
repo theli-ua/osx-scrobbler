@@ -1,6 +1,9 @@
 # Changelog
 
 ## [Unreleased]
+## [0.3.4]
+- Bump media-remote dependency
+
 ## [0.3.3]
 - Fix mem leak
 

@@ -1,6 +1,6 @@
 [package]
 name = "osx-scrobbler"
-version = "0.3.3"
+version = "0.3.4"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["OSX Scrobbler Contributors"]
@@ -12,8 +12,7 @@ categories = ["multimedia", "gui"]
 
 [dependencies]
 # Media monitoring
-# media-remote = "0.2.3"
-media-remote = { git = "https://github.com/theli-ua/media-remote.git" , version = "0.2.3" }
+media-remote = "0.3.6"
 
 # Scrobbling services
 rustfm-scrobble-proxy = "2.0.0"
