@@ -13,7 +13,7 @@ categories = ["multimedia", "gui"]
 [dependencies]
 # Media monitoring
 # media-remote = "0.2.3"
-media-remote = { git = "https://github.com/theli-ua/media-remote.git" }
+media-remote = { git = "https://github.com/theli-ua/media-remote.git" , version = "0.2.3" }
 
 # Scrobbling services
 rustfm-scrobble-proxy = "2.0.0"
