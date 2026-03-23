@@ -180,16 +180,24 @@ impl MediaMonitor {
             // Check if media is playing (not paused)
             let is_playing = info.is_playing.unwrap_or(false);
 
+            log::debug!(
+                    "is_playing: {0:?}, title: {1:?}, artist: {2:?}, album: {3:?}, elapsed_time: {4:?}, duration: {5:?}, bundle_id: {6:?}, bundle_name: {7:?}",
+                    info.is_playing,
+                    info.title,
+                    info.artist, info.album, info.elapsed_time, info.duration, info.bundle_id, info.bundle_name
+                );
+
             if !is_playing {
                 // Media is paused or stopped - don't start new session
                 // but keep existing session in case playback resumes
                 return Ok(events);
             }
-            log::debug!("now playing info: {:?}", info);
 
             if let Some(track) = self.media_info_to_track(&info) {
                 let duration = track.duration.unwrap_or(0);
                 let bundle_id = info.bundle_id.clone();
+
+                log::debug!("{track:?}");
 
                 // Check if we should scrobble from this app
                 match self.should_scrobble_app(&bundle_id, app_filtering) {
@@ -208,8 +216,6 @@ impl MediaMonitor {
                         // Continue with normal processing
                     }
                 }
-
-                log::debug!("Info: {info:?}");
 
                 // Check if this is a new track or continuation
                 let is_new_track = match &self.current_session {
