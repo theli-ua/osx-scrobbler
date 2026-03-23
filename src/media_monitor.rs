@@ -8,7 +8,6 @@ use anyhow::Result;
 use chrono::{DateTime, Utc};
 use media_remote::prelude::*;
 use media_remote::NowPlayingInfo;
-use std::time::Duration;
 use std::time::SystemTime;
 
 const MIN_TRACK_DURATION: u64 = 30; // Minimum track duration in seconds to scrobble
@@ -28,6 +27,7 @@ struct PlaySession {
     track: Track,
     bundle_id: Option<String>,
     started_at: DateTime<Utc>,
+    position: Option<f64>,
     duration: u64, // Track duration in seconds
     scrobbled: bool,
     now_playing_sent: bool,
@@ -40,6 +40,7 @@ impl PlaySession {
         bundle_id: Option<String>,
         duration: u64,
         info_update_time: Option<SystemTime>,
+        position: Option<f64>,
     ) -> Self {
         Self {
             track,
@@ -49,6 +50,7 @@ impl PlaySession {
             scrobbled: false,
             now_playing_sent: false,
             info_update_time,
+            position,
         }
     }
 
@@ -86,7 +88,7 @@ impl PlaySession {
 
 /// Media monitor that polls macOS media remote
 pub struct MediaMonitor {
-    now_playing: NowPlayingJXA,
+    now_playing: NowPlayingPerl,
     scrobble_threshold: u8,
     current_session: Option<PlaySession>,
     text_cleaner: TextCleaner,
@@ -95,7 +97,7 @@ pub struct MediaMonitor {
 impl MediaMonitor {
     pub fn new(scrobble_threshold: u8, text_cleaner: TextCleaner) -> Self {
         Self {
-            now_playing: NowPlayingJXA::new(Duration::from_secs(30)),
+            now_playing: NowPlayingPerl::new(),
             scrobble_threshold,
             current_session: None,
             text_cleaner,
@@ -207,12 +209,27 @@ impl MediaMonitor {
                     }
                 }
 
+                log::debug!("Info: {info:?}");
+
                 // Check if this is a new track or continuation
                 let is_new_track = match &self.current_session {
                     None => true,
                     Some(session) => {
-                        // Check if track changed
-                        session.track != track || session.info_update_time != info.info_update_time
+                        // New track
+                        if session.track != track {
+                            true
+                        } else {
+                            // Same track, let's see if we can detect if it is a new playback or same track playing
+                            match (session.position, info.elapsed_time) {
+                                (Some(prev_position), Some(cur_position))
+                                    if cur_position < prev_position =>
+                                {
+                                    true
+                                }
+                                (None, None) => session.info_update_time != info.info_update_time,
+                                _ => false,
+                            }
+                        }
                     }
                 };
 
@@ -231,6 +248,7 @@ impl MediaMonitor {
                         bundle_id.clone(),
                         duration,
                         info.info_update_time,
+                        info.elapsed_time,
                     );
                     new_session.now_playing_sent = true; // Mark as sent immediately
                     self.current_session = Some(new_session);
