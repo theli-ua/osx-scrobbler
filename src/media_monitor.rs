@@ -284,6 +284,7 @@ impl MediaMonitor {
                             Some((session.track.clone(), session.bundle_id.clone()));
                         session.now_playing_sent = true;
                     }
+                    session.position = info.elapsed_time;
                 }
             }
         } else {
